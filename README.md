@@ -1,0 +1,2 @@
+# quick_and_dirty
+This is a "quick_and_dirty" solution to produce prototype webapps, based on python's FastAPI &amp; focused as much as possible at the template. By using internal API's, I try to leverage the capabilities of Jinja2, to provide Query, Forms &amp; Path data to the template's disposal. A significant part of the business logic will take place at the template, but hey, it's a solution for fast prototyping!
