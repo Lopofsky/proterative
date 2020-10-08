@@ -11,6 +11,5 @@ RUN /usr/local/bin/python -m pip install --upgrade pip || true
 RUN pip install -r requirements.txt || true
 
 
-EXPOSE 8000
-
-CMD ["uvicorn",  "app.main:app", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 7000
+CMD ["python",  "src/run.py"]

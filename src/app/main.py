@@ -6,10 +6,14 @@ from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, name as os_name
 import glob
 import importlib
+import sys
 
-if os_name == 'nt': fs = '\\'
+app = FastAPI(debug=True)
+
+sys.path.append(".")
+parent = dirname(realpath(__file__))
+if os_name == 'nt': fs = "\\"
 else: fs = '/'
-
 module_2_import = "routers"
 
 def load_all(module_2_import):
@@ -26,10 +30,7 @@ def load_all(module_2_import):
     return {str(x):y for x, y in globals_dict.items()}
 
 
-parent = dirname(realpath(__file__))
 templates = Jinja2Templates(directory=parent+fs+"decoration"+fs+"templates")
-
-app = FastAPI(debug=True)
 app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
 
 @app.route("/", methods=["GET", "POST"])
