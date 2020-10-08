@@ -1,0 +1,12 @@
+asyncpg
+databases[postgresql]
+fastapi
+SQLAlchemy
+uvicorn
+aiofiles
+jinja2 
+python-multipart
+
+# dev
+pytest
+requests
