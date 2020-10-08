@@ -3,7 +3,7 @@ FROM tiangolo/uvicorn-gunicorn-fastapi:python3.8
 
 #ENV FLASK_APP run.py
 # copy requirements file
-COPY requirements.txt .env ./
+COPY requirements.txt ./
 COPY src/app app
 
 # install dependencies
@@ -13,4 +13,4 @@ RUN pip install -r requirements.txt || true
 
 EXPOSE 8000
 
-CMD ["uvicorn",  "app.main:app", "--reload", "--workers", "4", "--host", "127.0.0.1", "--port", "8000"]
+CMD ["uvicorn",  "app.main:app", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "8000"]
