@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from app.routers import ping, index
+from routers import ping, index
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, name as os_name
 import glob
@@ -36,6 +36,7 @@ app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"),
 @app.route("/", methods=["GET", "POST"])
 @app.route("/{Path_Param1}/", methods=["GET", "POST"])
 async def root(request: Request, Path_Param1: str='index'):
+    print("0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_")
     payload = {"path":request.url.path}
     if payload["path"].strip(fs) != '': Path_Param1 = payload["path"].strip('/')
     path_exceptions = ['favicon.ico']
