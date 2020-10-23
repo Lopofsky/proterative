@@ -4,17 +4,24 @@ from fastapi.templating import Jinja2Templates
 from routers import ping, index
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, name as os_name
+from db import Database
 import glob
 import importlib
 import sys
 
 app = FastAPI(debug=True)
 
+fs, module_2_import = "\\" if os_name == 'nt' else '/', "routers"
 sys.path.append(".")
 parent = dirname(realpath(__file__))
-if os_name == 'nt': fs = "\\"
-else: fs = '/'
-module_2_import = "routers"
+templates = Jinja2Templates(directory=parent+fs+"decoration"+fs+"templates")
+app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
+database_instance = Database()
+
+@app.on_event("startup")
+async def startup():
+    await database_instance.connect()
+    app.state.db = database_instance
 
 def load_all(module_2_import):
     if getcwd().find(fs+"app") == -1: chdir("app"+fs)
@@ -29,17 +36,23 @@ def load_all(module_2_import):
     globals().update(globals_dict)
     return {str(x):y for x, y in globals_dict.items()}
 
-
-templates = Jinja2Templates(directory=parent+fs+"decoration"+fs+"templates")
-app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
+async def get_query(r_obj, query_name):
+    queries = {"test":"SELECT * FROM base"}
+    return [{k:v for k,v in item.items()} for item in await r_obj.fetch_rows(queries[query_name])]
 
 @app.route("/", methods=["GET", "POST"])
 @app.route("/{Path_Param1}/", methods=["GET", "POST"])
 async def root(request: Request, Path_Param1: str='index'):
-    print("0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_")
     payload = {"path":request.url.path}
     if payload["path"].strip(fs) != '': Path_Param1 = payload["path"].strip('/')
     path_exceptions = ['favicon.ico']
+    #---------------- [START] DATABASE QUERIES FROM FORMS (?) ----------------
+    query_name = "test" 
+    results = await get_query(r_obj=request.app.state.db, query_name=query_name)
+    print("\n\n\n")
+    print("results =", results)
+    print("\n\n\n")
+    #---------------- [END] DATABASE QUERIES FROM FORMS (?) ------------------
     if Path_Param1 in path_exceptions: pass
     else:
         if Path_Param1 == '': Path_Param1 = 'index'
