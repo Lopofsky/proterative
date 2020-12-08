@@ -12,16 +12,14 @@ sys.path.append(".")
 
 app = FastAPI(debug=True)
 
-fs, module_2_import = "\\" if os_name == 'nt' else '/', "routers"
-parent = dirname(realpath(__file__))
+fs, parent, DB, module_2_import = "\\" if os_name == 'nt' else '/', dirname(realpath(__file__)), Database(), "routers"
 templates = Jinja2Templates(directory=parent+fs+"decoration"+fs+"templates")
 app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
-database_instance = Database()
 
 @app.on_event("startup")
 async def startup():
-    await database_instance.connect()
-    app.state.db = database_instance
+    await DB.connect()
+    app.state.db = DB
 
 def load_all(module_2_import):
     if getcwd().find(fs+"app") == -1: chdir("app"+fs)
@@ -41,15 +39,17 @@ async def get_query(r_obj, query_name):
     return [{k:v for k,v in item.items()} for item in await r_obj.fetch_rows(queries[query_name])]
 
 @app.route("/", methods=["GET", "POST"])
-@app.route("/{Path_Param1}/", methods=["GET", "POST"])
-async def root(request: Request, Path_Param1: str='index'):
-    payload = {"path":request.url.path}
-    if payload["path"].strip(fs) != '': Path_Param1 = payload["path"].strip('/')
+@app.route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
+async def root(request: Request, Path_Param1: str='index', rest_of_path: str=''):
+    # request.url.path ~~== request["path_params"]
     path_exceptions = ['favicon.ico']
+    payload = {"path":request.url.path}
+    path_params = request["path_params"]
+    if len(path_params) > 0: Path_Param1 = path_params['Path_Param1']
     #---------------- [START] DATABASE QUERIES FROM FORMS (?) ----------------
     query_name = "test"
     results = await get_query(r_obj=request.app.state.db, query_name=query_name)
-    print("\n"*3, "results =", results, "\n"*3)
+    #print("\n"*3, "DB results =", results, "\n"*3)
     #---------------- [END] DATABASE QUERIES FROM FORMS (?) ------------------
     if Path_Param1 in path_exceptions: pass
     else:
@@ -57,11 +57,11 @@ async def root(request: Request, Path_Param1: str='index'):
         options = load_all(module_2_import)
         payload["page_requested"] = Path_Param1
         payload["form_data"] = await request.form() if "form" in dir(request) else None
-        payload["path_params"] = request["path_params"] if "path_params" in dir(request) else None
-        qp2s = str(request["query_string"].decode("utf-8")) # 'qp2s' aka "Query Parameters *to* String"
-        payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2s.split("&")} if qp2s.find('=') > -1 and len(qp2s) >= 3 else None
+        payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if len(path_params["rest_of_path"])> 0 else None
+        qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
+        payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else None
         Path_Param1 = Path_Param1 + ".html" if Path_Param1.find(".html") == -1 else Path_Param1
-        renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main"
+        renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there is "ex.py"@routers dir (that's a module) -> Call it's "main" function.
         if renderer in options:
             select_func = (renderer, {"request":request, "payload":payload, "templates":templates})
             return await options[select_func[0].replace("'", "")](*select_func[1].values())
