@@ -34,9 +34,9 @@ def load_all(module_2_import):
     globals().update(globals_dict)
     return {str(x):y for x, y in globals_dict.items()}
 
-async def get_query(r_obj, query_name):
-    queries = {"test":"SELECT * FROM base"} # todo: Redis
-    return [{k:v for k,v in item.items()} for item in await r_obj.fetch_rows(queries[query_name])]
+async def db_query(r_obj, query_name):
+    queries = {"test":'''SELECT * FROM base WHERE "ID" IN (1,2) ''', "test2":'''SELECT * FROM base WHERE "ID"=3 '''} # todo: Redis
+    return [{k:v for k,v in item.items()} for item in await r_obj.fetch_rows(queries[query_name])] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
 
 @app.route("/", methods=["GET", "POST"])
 @app.route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
@@ -47,22 +47,20 @@ async def root(request: Request, Path_Param1: str='index', rest_of_path: str='')
     path_params = request["path_params"]
     if len(path_params) > 0: Path_Param1 = path_params['Path_Param1']
     #---------------- [START] DATABASE QUERIES FROM FORMS (?) ----------------
-    query_name = "test"
-    results = await get_query(r_obj=request.app.state.db, query_name=query_name)
-    #print("\n"*3, "DB results =", results, "\n"*3)
+    # results = await db_query(r_obj=request.app.state.db, query_name="test")
     #---------------- [END] DATABASE QUERIES FROM FORMS (?) ------------------
     if Path_Param1 in path_exceptions: pass
     else:
         if Path_Param1 == '': Path_Param1 = 'index'
         options = load_all(module_2_import)
         payload["page_requested"] = Path_Param1
-        payload["form_data"] = await request.form() if "form" in dir(request) else None
-        payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if len(path_params["rest_of_path"])> 0 else None
+        payload["form_data"] = {x[0]:x[1] for x in list((await request.form()).items())}
+        payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if "rest_of_path" in path_params else None
         qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
         payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else None
         Path_Param1 = Path_Param1 + ".html" if Path_Param1.find(".html") == -1 else Path_Param1
         renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there is "ex.py"@routers dir (that's a module) -> Call it's "main" function.
         if renderer in options:
-            select_func = (renderer, {"request":request, "payload":payload, "templates":templates})
+            select_func = (renderer, {"request":request, "payload":payload, "templates":templates, "db_query":db_query})
             return await options[select_func[0].replace("'", "")](*select_func[1].values())
         else: return templates.TemplateResponse(Path_Param1, {"request": request, "payload": payload})
