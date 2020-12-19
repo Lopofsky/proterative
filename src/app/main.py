@@ -1,14 +1,13 @@
-from fastapi import FastAPI, Depends, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from routers import ping, index
-from os.path import dirname, basename, isfile, join, realpath
-from os import chdir, getcwd, name as os_name
-from db import Database
-import glob
-import importlib
 import sys
 sys.path.append(".")
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from os.path import dirname, basename, isfile, join, realpath
+from os import chdir, getcwd, name as os_name
+from .db import Database
+import glob
+import importlib
 
 app = FastAPI(debug=True)
 
