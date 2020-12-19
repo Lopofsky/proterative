@@ -5,20 +5,21 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, name as os_name
-from .db import Database
+from .db import form2DB, Database
 import glob
 import importlib
 
-app = FastAPI(debug=True)
-
 fs, parent, DB, module_2_import = "\\" if os_name == 'nt' else '/', dirname(realpath(__file__)), Database(), "routers"
-templates = Jinja2Templates(directory=parent+fs+"decoration"+fs+"templates")
-app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
+
+app = FastAPI(debug=True)
 
 @app.on_event("startup")
 async def startup():
     await DB.connect()
     app.state.db = DB
+
+templates = Jinja2Templates(directory=parent+fs+"decoration"+fs+"templates")
+app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
 
 def load_all(module_2_import):
     if getcwd().find(fs+"app") == -1: chdir("app"+fs)
@@ -32,17 +33,6 @@ def load_all(module_2_import):
     globals_dict = {module_meta[0][len(module_2_import)+1:]+'_'+module_meta[1]: getattr(module_data, module_meta[1]) for module_meta, module_data in names.items()}
     globals().update(globals_dict)
     return {str(x):y for x, y in globals_dict.items()}
-
-async def db_query(r_obj, query_name):
-    queries = {"test":'''SELECT * FROM base WHERE "ID" IN (1,2) ''', "test2":'''SELECT * FROM base WHERE "ID"=3 '''} # todo: Redis
-    return [{k:v for k,v in item.items()} for item in await r_obj.fetch_rows(queries[query_name])] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
-
-async def form2DB(payload, request):
-    db_data = {"DB":{"Query":None, "Result":None}}
-    if 'query_name' in payload['form_data']:
-        db_data["DB"]["Query"] = payload['form_data']['query_name']
-        db_data["DB"]["Result"] = await db_query(r_obj=request.app.state.db, query_name=db_data["DB"]["Query"])
-    return db_data
 
 @app.route("/", methods=["GET", "POST"])
 @app.route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])

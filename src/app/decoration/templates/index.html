@@ -46,7 +46,6 @@
           <i class="fas fa-fw fa-tachometer-alt"></i>
           <span>Dashboard</span></a>
       </li>
-
       <!-- Divider -->
       <hr class="sidebar-divider">
 
@@ -337,7 +336,28 @@
             <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
             <a href="/#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
           </div>
-
+<h3>Payload</h3>
+{% for k, v in  payload.items() %}
+  <ul>
+    <label style="color:red;">{{k}}</label>
+    {% if v is iterable and v is not string %}
+      <!-- LIST -->
+      {% if v is iterable and (v is not string and v is not mapping) %} 
+        {% for e in v %}
+          <li>{{e}}</li>
+        {% endfor %}
+      {% else %}
+        <!-- DICT -->
+        {% for k2, v2 in v.items() %}
+          <li>{{k2}} - {{v2}}</li>
+        {% endfor %}
+      {% endif %}
+    {% else %}
+      <!-- NON-ITERABLE i.e. String -->
+      <li>{{v}}</li>
+    {% endif %}
+  </ul>
+{% endfor %}
           <!-- Content Row -->
           <div class="row">
 

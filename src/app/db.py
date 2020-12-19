@@ -1,4 +1,5 @@
 # SOURCE: https://github.com/tiangolo/fastapi/issues/1800
+
 import asyncpg
 import os 
 
@@ -19,3 +20,14 @@ class Database:
             try: return await self.con.fetch(query)
             except Exception as e: raise e
             finally: await self._connection_pool.release(self.con)
+
+async def db_query(r_obj, query_name):
+    queries = {"test":'''SELECT * FROM base WHERE "ID" IN (1,2) ''', "test2":'''SELECT * FROM base WHERE "ID"=3 '''} # todo: Redis
+    return [{k:v for k,v in item.items()} for item in await r_obj.fetch_rows(queries[query_name])] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
+
+async def form2DB(payload, request):
+    db_data = {"DB":{"Query":None, "Result":None}}
+    if 'query_name' in payload['form_data']:
+        db_data["DB"]["Query"] = payload['form_data']['query_name']
+        db_data["DB"]["Result"] = await db_query(r_obj=request.app.state.db, query_name=db_data["DB"]["Query"])
+    return db_data
