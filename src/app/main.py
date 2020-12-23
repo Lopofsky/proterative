@@ -5,7 +5,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, name as os_name, listdir
-from .db import form2DB, Database
+
+if __package__ is None or __package__ == '':
+    # uses current directory visibility
+    from db import form2DB, Database
+else:
+    # uses current package visibility
+    from .db import form2DB, Database
 import glob
 import importlib
 
