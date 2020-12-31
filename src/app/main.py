@@ -1,5 +1,4 @@
 import sys
-sys.path.append(".")
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -11,6 +10,7 @@ if __package__ is None or __package__ == '':
     from db import form2DB, Database
 else:
     # uses current package visibility
+    sys.path.append(".")
     from .db import form2DB, Database
 import glob
 import importlib
@@ -42,8 +42,8 @@ async def load_all(module_2_import=module_2_import):
     globals_dict['html_templates'] = [f for f in listdir(templates_dir) if f.endswith(".html")]
     globals().update(globals_dict)
 
-@app.route("/", methods=["GET", "POST"])
-@app.route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
+@app.api_route("/", methods=["GET", "POST"])
+@app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
 async def root(request: Request, Path_Param1: str='index', rest_of_path: str=''):
     # request.url.path ~~== request["path_params"]
     path_exceptions, err_page = ["forbidden"], "forbidden/403"
@@ -56,7 +56,7 @@ async def root(request: Request, Path_Param1: str='index', rest_of_path: str='')
         payload["form_data"] = {x[0]:x[1] for x in list((await request.form()).items())}
         payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if "rest_of_path" in path_params else None
         qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
-        payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else None
+        payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
         Path_Param1 = Path_Param1 + ".html" if Path_Param1.find(".html") == -1 else Path_Param1
         renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there is "ex.py"@routers dir (that's a module) -> Call it's "main" function.
         payload.update(await form2DB(payload, request))

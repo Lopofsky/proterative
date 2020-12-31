@@ -27,7 +27,7 @@ async def db_query(r_obj, query_name):
 
 async def form2DB(payload, request):
     db_data = {"DB":{"Query":None, "Result":None}}
-    if 'query_name' in payload['form_data']:
-        db_data["DB"]["Query"] = payload['form_data']['query_name']
+    if 'query_name' in payload['form_data'] or 'init_query' in payload['query_params']:
+        db_data["DB"]["Query"] = payload['form_data']['query_name'] if 'query_name' in payload['form_data'] else payload['query_params']['init_query']
         db_data["DB"]["Result"] = await db_query(r_obj=request.app.state.db, query_name=db_data["DB"]["Query"])
     return db_data
