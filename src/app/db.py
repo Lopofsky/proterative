@@ -25,9 +25,10 @@ async def db_query(r_obj, query_name):
     queries = {"test":'''SELECT * FROM base WHERE "ID" IN (1,2) ''', "test2":'''SELECT * FROM base WHERE "ID"=3 '''} # todo: Redis
     return [{k:v for k,v in item.items()} for item in await r_obj.fetch_rows(queries[query_name])] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
 
-async def form2DB(payload, request):
-    db_data = {"DB":{"Query":None, "Result":None}}
-    if 'query_name' in payload['form_data'] or 'init_query' in payload['query_params']:
-        db_data["DB"]["Query"] = payload['form_data']['query_name'] if 'query_name' in payload['form_data'] else payload['query_params']['init_query']
-        db_data["DB"]["Result"] = await db_query(r_obj=request.app.state.db, query_name=db_data["DB"]["Query"])
+async def frontEnd2DB(payload, request):
+    db_data = {"DB":{"Queries":[], "Results":[]}}
+    if 'query_names' in payload['form_data'] or 'init_query' in payload['query_params']:
+        db_data["DB"]["Queries"] = payload['form_data']['query_names'].split(',') if 'query_names' in payload['form_data'] else payload['query_params']['init_query'].split(',')
+        db_data["DB"]["Queries"] = [x.strip() for x in db_data["DB"]["Queries"]]
+        db_data["DB"]["Results"] = [await db_query(r_obj=request.app.state.db, query_name=a_query) for a_query in db_data["DB"]["Queries"]]
     return db_data

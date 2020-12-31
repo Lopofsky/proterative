@@ -1,13 +1,20 @@
-{% macro init_query(query_name) -%}
-  {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + query_name  %}
-  {% if 'Query' in payload['DB'] %}
-    {% if query_name == payload['DB']['Query'] %}
-    {% else %}
-      <h1>{{redirect_url}}</h1>
-      <meta http-equiv="refresh" content="0; URL={{redirect_url}}" />
+{% macro init_query(queries) -%}
+    {% if queries is iterable and queries is not string %}
+        {% set all_queries = queries|join(',') %}
+    {% elif queries is string %}
+        {% set all_queries = queries %}
     {% endif %}
-  {% else %}
-    <h1>{{redirect_url}}</h1>
-    <meta http-equiv="refresh" content="0; URL={{redirect_url}}" />
-  {% endif %}
+
+    {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + all_queries  %}
+    {% if 'Queries' in payload['DB'] %}
+        {% set actual_queries = payload['DB']['Queries']|join(',') %}
+        {% if all_queries == actual_queries %}
+        {% else %}
+            <h1>{{redirect_url}}</h1>
+            <meta http-equiv="refresh" content="0; URL={{redirect_url}}" />
+        {% endif %}
+    {% else %}
+        <h1>{{redirect_url}}</h1>
+        <meta http-equiv="refresh" content="0; URL={{redirect_url}}" />
+    {% endif %}
 {%- endmacro %}
