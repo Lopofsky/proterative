@@ -1,0 +1,13 @@
+{% macro init_query(query_name) -%}
+  {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + query_name  %}
+  {% if 'Query' in payload['DB'] %}
+    {% if query_name == payload['DB']['Query'] %}
+    {% else %}
+      <h1>{{redirect_url}}</h1>
+      <meta http-equiv="refresh" content="0; URL={{redirect_url}}" />
+    {% endif %}
+  {% else %}
+    <h1>{{redirect_url}}</h1>
+    <meta http-equiv="refresh" content="0; URL={{redirect_url}}" />
+  {% endif %}
+{%- endmacro %}
