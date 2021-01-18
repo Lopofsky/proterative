@@ -1,11 +1,11 @@
 # pull official base image
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.8
+FROM python:3.8
 
 #ENV FLASK_APP run.py
 # copy requirements file
 COPY requirements.txt ./
-COPY src/run.py ./
-COPY src/app ./
+#COPY src/run.py ./
+COPY src/ ./
 
 # install dependencies
 RUN /usr/local/bin/python -m pip install --upgrade pip || true
@@ -23,5 +23,5 @@ ARG POSTGRES_PORT
 ENV POSTGRES_PORT=$POSTGRES_PORT
 
 EXPOSE 7000
-CMD ["python",  "run.py"]
-#CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7000"]
+#CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7000"]
+CMD ["uvicorn", "app.main:app", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
