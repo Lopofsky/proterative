@@ -1,3 +1,13 @@
-fastapi
-python-multipart
 asyncpg
+databases[postgresql]
+fastapi
+SQLAlchemy
+hypercorn
+#gunicorn
+#uvicorn
+aiofiles
+jinja2 
+python-multipart
+requests
+uvloop
+httptools

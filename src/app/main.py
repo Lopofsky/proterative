@@ -7,11 +7,11 @@ from os import chdir, getcwd, name as os_name, listdir
 
 if __package__ is None or __package__ == '':
     # uses current directory visibility
-    from db import frontEnd2DB, Database
+    from db import frontEnd2DB, Database, checkIfUsersTableExist, createUsersDB
 else:
     # uses current package visibility
     sys.path.append(".")
-    from .db import frontEnd2DB, Database
+    from .db import frontEnd2DB, Database, checkIfUsersTableExist, createUsersDB
 import glob
 import importlib
 
@@ -23,7 +23,7 @@ app = FastAPI(debug=True)
 app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
 
 @app.on_event("startup")
-async def startup():
+async def DB_startup():
     await DB.connect()
     app.state.db = DB
 
@@ -41,6 +41,12 @@ async def load_all(module_2_import=module_2_import):
     globals_dict['options'] = {str(x):y for x, y in globals_dict.items()}
     globals_dict['html_templates'] = [f for f in listdir(templates_dir) if f.endswith(".html")]
     globals().update(globals_dict)
+
+@app.on_event("startup")
+async def create_users_db():
+    if await checkIfUsersTableExist(db_conn=app.state.db) == True: pass
+    else: await createUsersDB(db_conn=app.state.db)
+
 
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
