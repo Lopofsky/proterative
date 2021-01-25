@@ -8,11 +8,11 @@ from os import chdir, getcwd, name as os_name, listdir
 if __package__ is None or __package__ == '':
     # uses current directory visibility
     #sys.path.append(".")
-    from system.db import front_End_2DB, Database, generate_users_privileges_tables
+    from system.db import front_End_2DB, Database, generate_basic_DB_Tables
 else:
     # uses current package visibility
     sys.path.append(".")
-    from .system.db import front_End_2DB, Database, generate_users_privileges_tables
+    from .system.db import front_End_2DB, Database, generate_basic_DB_Tables
 import glob
 import importlib
 
@@ -44,9 +44,10 @@ async def load_all(module_2_import=module_2_import):
     globals().update(globals_dict)
 
 @app.on_event("startup")
-async def users_privileges_tables():
+async def basic_DB_Tables():
     # TODO: if config == 'generate_users_privileges_tables'
-    await generate_users_privileges_tables(db_conn=app.state.db)
+    do_you_want_users = True
+    await generate_basic_DB_Tables(db_conn=app.state.db, do_you_want_users=do_you_want_users)
 
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
