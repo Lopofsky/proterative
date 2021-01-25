@@ -7,11 +7,12 @@ from os import chdir, getcwd, name as os_name, listdir
 
 if __package__ is None or __package__ == '':
     # uses current directory visibility
-    from db import frontEnd2DB, Database, checkIfUsersTableExist, createUsersDB
+    #sys.path.append(".")
+    from system.db import front_End_2DB, Database, generate_users_privileges_tables
 else:
     # uses current package visibility
     sys.path.append(".")
-    from .db import frontEnd2DB, Database, checkIfUsersTableExist, createUsersDB
+    from .system.db import front_End_2DB, Database, generate_users_privileges_tables
 import glob
 import importlib
 
@@ -43,10 +44,9 @@ async def load_all(module_2_import=module_2_import):
     globals().update(globals_dict)
 
 @app.on_event("startup")
-async def create_users_db():
-    if await checkIfUsersTableExist(db_conn=app.state.db) == True: pass
-    else: await createUsersDB(db_conn=app.state.db)
-
+async def users_privileges_tables():
+    # TODO: if config == 'generate_users_privileges_tables'
+    await generate_users_privileges_tables(db_conn=app.state.db)
 
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
@@ -65,7 +65,7 @@ async def root(request: Request, Path_Param1: str='index', rest_of_path: str='')
         payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
         Path_Param1 = Path_Param1 + ".html" if Path_Param1.find(".html") == -1 else Path_Param1
         renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there is "ex.py"@routers dir (that's a module) -> Call it's "main" function.
-        payload.update(await frontEnd2DB(payload, request))
+        payload.update(await front_End_2DB(payload, request))
         if renderer in options:
             select_func = (renderer, {"request":request, "payload":payload, "templates":templates})
             return await options[select_func[0].replace("'", "")](*select_func[1].values())
