@@ -68,8 +68,8 @@ async def root(request: Request, Path_Param1: str='index', rest_of_path: str='')
         renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there is "ex.py"@routers dir (that's a module) -> Call it's "main" function.
         payload.update(await front_End_2DB(payload, request))
         if renderer in options:
-            select_func = (renderer, {"request":request, "payload":payload, "templates":templates})
-            return await options[select_func[0].replace("'", "")](*select_func[1].values())
+            select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
+            return await options[select_func[0].replace("'", "")](select_func[1].values)
         elif Path_Param1 in html_templates: return templates.TemplateResponse(Path_Param1, {"request": request, "payload": payload})
         else: err_page = "404"
     return templates.TemplateResponse(err_page+".html", {"request": request})

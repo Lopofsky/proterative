@@ -156,7 +156,11 @@
           <!-- Topbar Search -->
           <form class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search" action="/index" method="post" name="Database Query">
             <div class="input-group">
+
               <input type="text" name="query_names" class="form-control bg-light border-0 small" placeholder="Search for..." aria-label="Search" aria-describedby="basic-addon2">
+
+              
+
               <div class="input-group-append">
                 <button class="btn btn-primary" type="submit">
                   <i class="fas fa-search fa-sm">Get DB Query</i>
@@ -336,6 +340,7 @@
             <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
             <a href="/#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
           </div>
+{{payload}}
 <h3>Payload</h3>
 {% for k, v in  payload.items() %}
   <ul>
