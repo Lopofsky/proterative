@@ -1,18 +1,17 @@
-import sys
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, name as os_name, listdir
+import sys
 
 if __package__ is None or __package__ == '':
     # uses current directory visibility
-    #sys.path.append(".")
-    from system.db import front_End_2DB, Database, generate_basic_DB_Tables
+    from system.db import front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
 else:
     # uses current package visibility
     sys.path.append(".")
-    from .system.db import front_End_2DB, Database, generate_basic_DB_Tables
+    from .system.db import front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
 import glob
 import importlib
 
@@ -37,17 +36,23 @@ async def load_all(module_2_import=module_2_import):
     if getcwd().find(module_2_import) >= 0: chdir('..')
     try: all_modules = [importlib.import_module(module_2_import+'.'+i) for i in __all__]
     except Exception as e: raise e
-    names = {(m.__name__, x):m for m in all_modules for x in m.__dict__ if not x.startswith("_")}
+    names = {(m.__name__, x):m for m in all_modules for x in m.__dict__ if x=='main'}
     globals_dict = {module_meta[0][len(module_2_import)+1:]+'_'+module_meta[1]: getattr(module_data, module_meta[1]) for module_meta, module_data in names.items()}
     globals_dict['options'] = {str(x):y for x, y in globals_dict.items()}
     globals_dict['html_templates'] = [f for f in listdir(templates_dir) if f.endswith(".html")]
     globals().update(globals_dict)
 
+async def available_endpoints():
+    available_endpoints = {x.replace('_main', ''):"py" for x in options.keys()}
+    available_endpoints.update({x.replace('.html', ''):"html" for x in html_templates if x.replace('.html', '') not in available_endpoints.keys()})
+    return available_endpoints
+
 @app.on_event("startup")
-async def basic_DB_Tables():
+async def basic_DB_tables():
     # TODO: if config == 'generate_users_privileges_tables'
     do_you_want_users = True
-    await generate_basic_DB_Tables(db_conn=app.state.db, do_you_want_users=do_you_want_users)
+    await generate_basic_DB_tables(db_conn=app.state.db, do_you_want_users=do_you_want_users, available_endpoints=await available_endpoints())
+    globals()['do_you_want_users'] = do_you_want_users
 
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])

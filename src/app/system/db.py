@@ -27,9 +27,18 @@ class Database:
             await self._connection_pool.release(self.con)
             return results
 
-async def db_query(r_obj, query_name, External):
+async def check_type(the_type, subject):
+    types = {"int":{"convertor":int, "prefix":"", "endfix":""}, "float":{"convertor":float, "prefix":"", "endfix":""}, "text":{"convertor":str, "prefix":"'", "endfix":"'"}, "json":{"convertor":json.dumps, "prefix":"'", "endfix":"'::jsonb"}}
+    if the_type not in types.keys(): raise Exception("We don't Support this Type Yet.")
+    else: f = types[the_type]["convertor"]
+    try: 
+        f(subject)
+        return types[the_type]['prefix']+str(subject)+types[the_type]['endfix']
+    except: return False
+
+async def db_query(r_obj, query_name, External, query_payload=None):
     queries = {
-        "check_if_basic_DB_Tables_exist":{
+        "check_if_basic_DB_tables_exist":{
             "Query":''' SELECT EXISTS(SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Users') AS "Users", EXISTS(SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Privileges') AS "Privileges", EXISTS(SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'DBQueries') AS "DBQueries"; '''
         },
         "create_DBQueries_table":{ # TODO
@@ -54,25 +63,40 @@ async def db_query(r_obj, query_name, External):
                 (2, '{}',   'create_privileges_table',  'DROP SEQUENCE IF EXISTS "Privileges_ID_seq";
                 CREATE SEQUENCE "Privileges_ID_seq" INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1;
                 CREATE TABLE IF NOT EXISTS "public"."Privileges" (
-                                    "ID" integer DEFAULT nextval(''"Privileges_ID_seq"'') NOT NULL,
-                                    "username" text NOT NULL,
-                                    "password" text NOT NULL,
-                                    "roles" jsonb,
-                                    "metadata" jsonb
+                                    "ID" integer DEFAULT nextval('"Privileges_ID_seq"') NOT NULL,
+                                    "endpoint" text NOT NULL,
+                                    "roles" jsonb NOT NULL,
+                                    "meta" jsonb NOT NULL
                                 ) WITH (oids = false);')
                 '''],
             "meta": {"External":0}
         },
         "load_all_DBQueries":{
             "Query":''' SELECT * FROM "DBQueries"; '''
+        },
+        "load_privileges":{
+            "Query":''' SELECT * FROM "Privileges"; '''
+        },
+        "populate_privileges":{
+            "Query":''' INSERT INTO "Privileges"("endpoint", "roles") VALUES({endpoint}, {roles}) ''',
+            "meta":{"Payload":{"endpoint":"text", "roles":"json", "meta":"json"}}
         }
     } # todo: Redis
+    if query_payload is not None:
+        if query_name in queries and 'meta' in queries[query_name] and 'Payload' in queries[query_name]['meta']:
+            allowed_types = queries[query_name]['meta']['Payload']
+            for var, cont in query_payload.items():
+                if var in allowed_types.keys():
+                    fin_check = await check_type(allowed_types[var], cont)
+                    if fin_check is False: raise Exception("Illegal Payload Type -> "+str(var))
+                    queries[query_name]["Query"] = queries[query_name]["Query"].replace("{"+var+"}", fin_check)
+                else: raise Exception("Unknown Keyword in Payload.")
+        else: pass # Why the dev provided this query with a payload? Deprecated query maybe? -> todo handling: notification.
+        print(queries[query_name]["Query"])
     if External: 
-        allowed_external_queries = {k:v for k,v in globals()['DBQueries'].items() if 'meta' in v and 'External' in v['meta'] and v['meta']['External'] == 1}
+        allowed_external_queries = {k:v for k,v in queries.items() if 'meta' in v and 'External' in v['meta'] and v['meta']['External'] == 1}
         return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(allowed_external_queries[query_name]["Query"]) for rec in results ] if query_name in allowed_external_queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found ~OR~ Not Allowed to be Exposed Externally!."}]
-    else: 
-        queries = globals()['DBQueries'] if query_name not in queries else queries
-        return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(queries[query_name]["Query"]) for rec in results ] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
+    else: return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(queries[query_name]["Query"]) for rec in results ] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
 
 async def front_End_2DB(payload, request):
     db_data = {"DB":{"Queries":[], "Results":[]}}
@@ -82,9 +106,11 @@ async def front_End_2DB(payload, request):
         db_data["DB"]["Results"] = [await db_query(r_obj=request.app.state.db, query_name=a_query, External=True) for a_query in db_data["DB"]["Queries"]]
     return db_data
 
-async def generate_basic_DB_Tables(db_conn, do_you_want_users, reload_Queries=False):
+async def endpoints(): pass
+
+async def generate_basic_DB_tables(db_conn, do_you_want_users, available_endpoints, reload_Queries=False):
     GLOBALS = dict(globals())
-    results = (await db_query(r_obj=db_conn, query_name="check_if_basic_DB_Tables_exist", External=False))[0]
+    results = (await db_query(r_obj=db_conn, query_name="check_if_basic_DB_tables_exist", External=False))[0]
     if not results['DBQueries']: await db_query(r_obj=db_conn, query_name="create_DBQueries_table", External=False)
     if ('DBQueries' not in GLOBALS) or ('DBQueries' in GLOBALS and reload_Queries == True):
         all_queries = await db_query(r_obj=db_conn, query_name="load_all_DBQueries", External=False)
@@ -92,4 +118,12 @@ async def generate_basic_DB_Tables(db_conn, do_you_want_users, reload_Queries=Fa
     else: pass
     if do_you_want_users == True:
         if not results['Users']: await db_query(r_obj=db_conn, query_name="create_users_table", External=False)
-        if not results['Privileges']: await db_query(r_obj=db_conn, query_name="create_privileges_table", External=False)
+        if not results['Privileges']: 
+            await db_query(r_obj=db_conn, query_name="create_privileges_table", External=False)
+            await populate_privileges_DB_table(db_conn, available_endpoints)
+
+async def populate_privileges_DB_table(db_conn, available_endpoints):
+    query_payload = {}
+    for endpoint, renderer_type in available_endpoints.items():
+        query_payload = {"endpoint":endpoint, "roles":{}, "meta":{"renderer_type":renderer_type}}
+        await db_query(r_obj=db_conn, query_name="populate_privileges", External=False, query_payload=query_payload)
