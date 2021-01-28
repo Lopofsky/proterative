@@ -9,10 +9,12 @@ import sys, json
 if __package__ is None or __package__ == '':
     # uses current directory visibility
     from system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
+    from system.auth import *
 else:
     # uses current package visibility
     sys.path.append(".")
     from .system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
+    from .system.auth import *
 import glob
 import importlib
 
@@ -43,12 +45,12 @@ async def load_all(module_2_import=module_2_import):
     globals_dict['html_templates'] = [f for f in listdir(templates_dir) if f.endswith(".html")]
     globals().update(globals_dict)
 
+# I love that kind of mindset!!! Thank you!!!: https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python
 @asyncinit
 class Singleton(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        if cls not in cls._instances: cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
 
 @asyncinit
@@ -66,10 +68,20 @@ class Users:
     async def __init__(self):
         try:
             res = await db_query(r_obj=app.state.db, query_name="load_users", External=False)
-            self.available = {r['username']:{"ID":r["ID"], "metadata":json.loads(r["metadata"]), "roles":json.loads(r["roles"])} for r in res} 
+            self.available = {r['username']:{'ID':r['ID'], 'metadata':json.loads(r['metadata']), 'roles':json.loads(r['roles'])} for r in res} 
         except: self.available = {}
 
-async def available_endpoints():
+@asyncinit
+class Sessions:
+    __metaclass__ = Singleton
+    async def __init__(self):
+        x = lambda x: json.loads(x)
+        try: 
+            res = await db_query(r_obj=app.state.db, query_name="load_sessions", External=False)
+            self.available = {x(r['m'])['username']:x(r['m']) for r in res}
+        except: self.available = {}
+
+async def endpoints_and_privileges():
     privileges = await Privileges()
     endpoints = {x.replace('_main', ''):"py" for x in options.keys()}
     endpoints.update({x.replace('.html', ''):"html" for x in html_templates if x.replace('.html', '') not in endpoints.keys()})
@@ -77,26 +89,28 @@ async def available_endpoints():
 
 @app.on_event("startup")
 async def basic_DB_tables():
-    # TODO: if config == 'generate_users_privileges_tables'
     do_you_want_users = True
-    endpoints, privileges = await available_endpoints()
+    endpoints, privileges = await endpoints_and_privileges()
     await generate_basic_DB_tables(db_conn=app.state.db, do_you_want_users=do_you_want_users, endpoints=endpoints, privileges=privileges)
 
-'''
 @app.on_event("startup")
-async def load_users_and_privileges(reload_all=False):
-    users = dict({k:v for k,v in (await Users()).available.items()})
-    privileges = dict({k:v['roles'] for k,v in (await Privileges()).available.items()})
-    globals().update({"users":users, "privileges":privileges})
-    if reload_all == True: return (users, privileges)
-'''
+async def load_users_and_privileges_and_sessions(reload_g=False):
+    das_globals = ['users', 'privileges', 'sessions']
+    G = list(globals().keys())
+    if (not all(g in G for g in das_globals)) or (reload_g is not False and reload_g in das_globals):
+            if reload_g == 'users' or 'users' not in G: 
+                globals().update({"users":dict({k:v for k,v in (await Users()).available.items()})})
+            if reload_g == 'privileges' or 'privileges' not in G:
+                globals().update({"privileges":dict({k:v['roles'] for k,v in (await Privileges()).available.items()})})
+            if reload_g == 'sessions' or 'sessions' not in G:
+                globals().update({"sessions":{username:metadata for username, metadata in (await Sessions()).available.items()}})
+    elif (reload_g is not False and reload_g not in das_globals): raise Exception("Unknown Global Variable Requested to be Reloaded ->", reload_g)
+    else: pass
 
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
 async def root(request: Request, Path_Param1: str='index', rest_of_path: str=''):
-    # request.url.path ~~== request["path_params"]
-    #users, privileges = await load_users_and_privileges(reload_all=True)
-    users, privileges = dict({k:v for k,v in (await Users()).available.items()}), dict({k:v['roles'] for k,v in (await Privileges()).available.items()})
+    await load_users_and_privileges_and_sessions(reload_g="sessions")
     path_exceptions, err_page = ["forbidden"], "forbidden/403"
     payload = {"path":request.url.path}
     path_params = request["path_params"]
