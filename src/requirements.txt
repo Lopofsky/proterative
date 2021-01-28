@@ -2,12 +2,12 @@ asyncpg
 databases[postgresql]
 fastapi
 SQLAlchemy
-hypercorn
-#gunicorn
-#uvicorn
+#hypercorn
+uvicorn
 aiofiles
 jinja2 
 python-multipart
 requests
 uvloop
 httptools
+asyncinit

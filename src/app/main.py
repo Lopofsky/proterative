@@ -3,15 +3,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, name as os_name, listdir
-import sys
+from asyncinit import asyncinit
+import sys, json
 
 if __package__ is None or __package__ == '':
     # uses current directory visibility
-    from system.db import front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
+    from system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
 else:
     # uses current package visibility
     sys.path.append(".")
-    from .system.db import front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
+    from .system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
 import glob
 import importlib
 
@@ -42,22 +43,60 @@ async def load_all(module_2_import=module_2_import):
     globals_dict['html_templates'] = [f for f in listdir(templates_dir) if f.endswith(".html")]
     globals().update(globals_dict)
 
+@asyncinit
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+@asyncinit
+class Privileges:
+    __metaclass__ = Singleton
+    async def __init__(self):
+        try:
+            res = await db_query(r_obj=app.state.db, query_name="load_privileges", External=False)
+            self.available = {r['endpoint']:{"ID":r["ID"], "meta":json.loads(r["meta"]), "roles":json.loads(r["roles"])} for r in res} 
+        except: self.available = {}
+
+@asyncinit
+class Users:
+    __metaclass__ = Singleton
+    async def __init__(self):
+        try:
+            res = await db_query(r_obj=app.state.db, query_name="load_users", External=False)
+            self.available = {r['username']:{"ID":r["ID"], "metadata":json.loads(r["metadata"]), "roles":json.loads(r["roles"])} for r in res} 
+        except: self.available = {}
+
 async def available_endpoints():
-    available_endpoints = {x.replace('_main', ''):"py" for x in options.keys()}
-    available_endpoints.update({x.replace('.html', ''):"html" for x in html_templates if x.replace('.html', '') not in available_endpoints.keys()})
-    return available_endpoints
+    privileges = await Privileges()
+    endpoints = {x.replace('_main', ''):"py" for x in options.keys()}
+    endpoints.update({x.replace('.html', ''):"html" for x in html_templates if x.replace('.html', '') not in endpoints.keys()})
+    return endpoints, privileges
 
 @app.on_event("startup")
 async def basic_DB_tables():
     # TODO: if config == 'generate_users_privileges_tables'
     do_you_want_users = True
-    await generate_basic_DB_tables(db_conn=app.state.db, do_you_want_users=do_you_want_users, available_endpoints=await available_endpoints())
-    globals()['do_you_want_users'] = do_you_want_users
+    endpoints, privileges = await available_endpoints()
+    await generate_basic_DB_tables(db_conn=app.state.db, do_you_want_users=do_you_want_users, endpoints=endpoints, privileges=privileges)
+
+'''
+@app.on_event("startup")
+async def load_users_and_privileges(reload_all=False):
+    users = dict({k:v for k,v in (await Users()).available.items()})
+    privileges = dict({k:v['roles'] for k,v in (await Privileges()).available.items()})
+    globals().update({"users":users, "privileges":privileges})
+    if reload_all == True: return (users, privileges)
+'''
 
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
 async def root(request: Request, Path_Param1: str='index', rest_of_path: str=''):
     # request.url.path ~~== request["path_params"]
+    #users, privileges = await load_users_and_privileges(reload_all=True)
+    users, privileges = dict({k:v for k,v in (await Users()).available.items()}), dict({k:v['roles'] for k,v in (await Privileges()).available.items()})
     path_exceptions, err_page = ["forbidden"], "forbidden/403"
     payload = {"path":request.url.path}
     path_params = request["path_params"]
@@ -70,7 +109,7 @@ async def root(request: Request, Path_Param1: str='index', rest_of_path: str='')
         qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
         payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
         Path_Param1 = Path_Param1 + ".html" if Path_Param1.find(".html") == -1 else Path_Param1
-        renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there is "ex.py"@routers dir (that's a module) -> Call it's "main" function.
+        renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there should be an "ex.py" file at routers dir (that's the module) -> Call it's "main" function.
         payload.update(await front_End_2DB(payload, request))
         if renderer in options:
             select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
