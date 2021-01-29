@@ -143,11 +143,10 @@ async def root(request: Request, Path_Param1: str='index', rest_of_path: str='')
         payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if "rest_of_path" in path_params else None
         qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
         payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
+        payload.update(await front_End_2DB(payload, request))
+        if Path_Param1.replace('.html', '') in ('login', 'logout', 'private'): return await Auth(request=request, payload=payload)
         Path_Param1 = Path_Param1 + ".html" if Path_Param1.find(".html") == -1 else Path_Param1
         renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there should be an "ex.py" file at routers dir (that's the module) -> Call it's "main" function.
-        payload.update(await front_End_2DB(payload, request))
-        if Path_Param1.replace('.html', '') in ('login', 'logout', 'private'):
-            return await Auth(request=request, payload=payload)
         if renderer in options:
             select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
             return await options[select_func[0].replace("'", "")](select_func[1].values)
