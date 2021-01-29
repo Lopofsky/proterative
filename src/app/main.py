@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from fastapi_login import LoginManager
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from os.path import dirname, basename, isfile, join, realpath
@@ -36,12 +35,7 @@ async def DB_startup():
 
 @app.on_event("startup")
 async def utility_initializers():
-    await convert_your_html_files()
-
-@app.on_event("startup")
-async def Session():
-    if do_you_want_users == True: 
-        manager = LoginManager(SESSION_SECRET, tokenUrl='/auth/token', use_cookie=True)
+    await convert_your_html_files()        
 
 @app.on_event("startup")
 async def load_all(module_2_import=module_2_import):
@@ -130,6 +124,9 @@ async def load_users_privileges_sessions_DBQueries(reload_g=False):
     elif (reload_g is not False and reload_g not in das_globals): raise Exception("Unknown Global Variable Requested to be Reloaded ->", reload_g)
     else: pass
 
+async def Auth(request, payload):
+    if do_you_want_users == True: await authenticate(request, payload, SESSION_SECRET)
+
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
 async def root(request: Request, Path_Param1: str='index', rest_of_path: str=''):
@@ -149,6 +146,8 @@ async def root(request: Request, Path_Param1: str='index', rest_of_path: str='')
         Path_Param1 = Path_Param1 + ".html" if Path_Param1.find(".html") == -1 else Path_Param1
         renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there should be an "ex.py" file at routers dir (that's the module) -> Call it's "main" function.
         payload.update(await front_End_2DB(payload, request))
+        if Path_Param1.replace('.html', '') in ('login', 'logout', 'private'):
+            return await Auth(request=request, payload=payload)
         if renderer in options:
             select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
             return await options[select_func[0].replace("'", "")](select_func[1].values)
