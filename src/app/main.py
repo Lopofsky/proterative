@@ -1,26 +1,30 @@
 from fastapi import FastAPI, Request
+from fastapi_login import LoginManager
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from os.path import dirname, basename, isfile, join, realpath
-from os import chdir, getcwd, name as os_name, listdir
+from os import chdir, getcwd, environ, name as os_name, listdir
 from asyncinit import asyncinit
-import sys, json
+import sys, json, glob, importlib
 
 if __package__ is None or __package__ == '':
     # uses current directory visibility
     from system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
     from system.auth import *
+    from system.utilities import convert_your_html_files
 else:
     # uses current package visibility
     sys.path.append(".")
     from .system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
     from .system.auth import *
-import glob
-import importlib
+    from .system.utilities import convert_your_html_files
 
 fs, parent, DB, module_2_import = "\\" if os_name == 'nt' else '/', dirname(realpath(__file__)), Database(), "routers"
 templates_dir = parent+fs+"decoration"+fs+"templates"
 templates = Jinja2Templates(directory=templates_dir)
+SESSION_SECRET = environ["SESSION_SECRET"]
+do_you_want_users = True if "DO_YOU_WANT_USERS" in environ and environ["DO_YOU_WANT_USERS"] == "True" else False
+where_am_i = environ["WHERE_AM_I"] if "WHERE_AM_I" in environ and environ["WHERE_AM_I"] not in ('', None) else "PRODUCTION"
 
 app = FastAPI(debug=True)
 app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
@@ -29,6 +33,15 @@ app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"),
 async def DB_startup():
     await DB.connect()
     app.state.db = DB
+
+@app.on_event("startup")
+async def utility_initializers():
+    await convert_your_html_files()
+
+@app.on_event("startup")
+async def Session():
+    if do_you_want_users == True: 
+        manager = LoginManager(SESSION_SECRET, tokenUrl='/auth/token', use_cookie=True)
 
 @app.on_event("startup")
 async def load_all(module_2_import=module_2_import):
@@ -72,6 +85,15 @@ class Users:
         except: self.available = {}
 
 @asyncinit
+class Database:
+    __metaclass__ = Singleton
+    async def __init__(self):
+        try:
+            res = await db_query(r_obj=app.state.db, query_name="load_users", External=False)
+            self.available = {r['username']:{'ID':r['ID'], 'metadata':json.loads(r['metadata']), 'roles':json.loads(r['roles'])} for r in res} 
+        except: self.available = {}
+
+@asyncinit
 class Sessions:
     __metaclass__ = Singleton
     async def __init__(self):
@@ -81,21 +103,21 @@ class Sessions:
             self.available = {x(r['m'])['username']:x(r['m']) for r in res}
         except: self.available = {}
 
-async def endpoints_and_privileges():
-    privileges = await Privileges()
+async def discovered_endpoints():
     endpoints = {x.replace('_main', ''):"py" for x in options.keys()}
-    endpoints.update({x.replace('.html', ''):"html" for x in html_templates if x.replace('.html', '') not in endpoints.keys()})
-    return endpoints, privileges
+    return endpoints.update({x.replace('.html', ''):"html" for x in html_templates if x.replace('.html', '') not in endpoints.keys()})
 
 @app.on_event("startup")
-async def basic_DB_tables():
-    do_you_want_users = True
-    endpoints, privileges = await endpoints_and_privileges()
-    await generate_basic_DB_tables(db_conn=app.state.db, do_you_want_users=do_you_want_users, endpoints=endpoints, privileges=privileges)
+async def basic_DB_tables(reload_all_DBQueries=False):
+    if reload_all_DBQueries == False:
+        privileges = await Privileges() if do_you_want_users == True else None
+        endpoints = await discovered_endpoints()
+        await generate_basic_DB_tables(db_conn=app.state.db, do_you_want_users=do_you_want_users, endpoints=endpoints, privileges=privileges, reload_all_DBQueries=reload_all_DBQueries)
+    else: await generate_basic_DB_tables(db_conn=app.state.db, do_you_want_users=do_you_want_users, endpoints=None, privileges=None, reload_all_DBQueries=reload_all_DBQueries)
 
 @app.on_event("startup")
-async def load_users_and_privileges_and_sessions(reload_g=False):
-    das_globals = ['users', 'privileges', 'sessions']
+async def load_users_privileges_sessions_DBQueries(reload_g=False):
+    das_globals = ['users', 'privileges', 'sessions', 'DBQueries']
     G = list(globals().keys())
     if (not all(g in G for g in das_globals)) or (reload_g is not False and reload_g in das_globals):
             if reload_g == 'users' or 'users' not in G: 
@@ -104,13 +126,15 @@ async def load_users_and_privileges_and_sessions(reload_g=False):
                 globals().update({"privileges":dict({k:v['roles'] for k,v in (await Privileges()).available.items()})})
             if reload_g == 'sessions' or 'sessions' not in G:
                 globals().update({"sessions":{username:metadata for username, metadata in (await Sessions()).available.items()}})
+            if reload_g == 'DBQueries': await basic_DB_tables(reload_all_DBQueries=True)
     elif (reload_g is not False and reload_g not in das_globals): raise Exception("Unknown Global Variable Requested to be Reloaded ->", reload_g)
     else: pass
 
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/{Path_Param1}/{rest_of_path:path}", methods=["GET", "POST"])
 async def root(request: Request, Path_Param1: str='index', rest_of_path: str=''):
-    await load_users_and_privileges_and_sessions(reload_g="sessions")
+    await load_users_privileges_sessions_DBQueries(reload_g="sessions")
+    print("sessions", sessions)
     path_exceptions, err_page = ["forbidden"], "forbidden/403"
     payload = {"path":request.url.path}
     path_params = request["path_params"]

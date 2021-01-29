@@ -1,4 +1,5 @@
 # SOURCE: https://github.com/tiangolo/fastapi/issues/1800
+#from asyncinit import asyncinit
 import asyncpg, json, time, os, copy
 
 class Database:
@@ -130,16 +131,21 @@ async def front_End_2DB(payload, request):
         db_data["DB"]["Results"] = [await db_query(r_obj=request.app.state.db, query_name=a_query, External=True) for a_query in db_data["DB"]["Queries"]]
     return db_data
 
-async def generate_basic_DB_tables(db_conn, do_you_want_users, endpoints, privileges=None, reload_Queries=False):
-    results = (await db_query(r_obj=db_conn, query_name="check_if_basic_DB_tables_exist", External=False))[0]
-    if not results['DBQueries']: await db_query(r_obj=db_conn, query_name="create_DBQueries_table", External=False)
-    all_queries = await db_query(r_obj=db_conn, query_name="load_all_DBQueries", External=False)
-    db_conn.DBQueries.update({query["Name"]:{"Query":query["Query"], "meta":json.loads(query["meta"]) if "meta" in query else {}} for query in all_queries})
-    if do_you_want_users == True:
-        if not results['Users']: await db_query(r_obj=db_conn, query_name="create_users_table", External=False)
-        if not results['Privileges']: await db_query(r_obj=db_conn, query_name="create_privileges_table", External=False)
-        if not results['Sessions']: await db_query(r_obj=db_conn, query_name="create_sessions_table", External=False)
-        await populate_privileges_DB_table(db_conn, endpoints, privileges)
+async def generate_basic_DB_tables(db_conn, do_you_want_users, endpoints, privileges=None, reload_all_DBQueries=False):
+    if reload_all_DBQueries == False:
+        results = (await db_query(r_obj=db_conn, query_name="check_if_basic_DB_tables_exist", External=False))[0]
+        if not results['DBQueries']: await db_query(r_obj=db_conn, query_name="create_DBQueries_table", External=False)
+        all_queries = await db_query(r_obj=db_conn, query_name="load_all_DBQueries", External=False)
+        db_conn.DBQueries.update({query["Name"]:{"Query":query["Query"], "meta":json.loads(query["meta"]) if "meta" in query else {}} for query in all_queries})
+        if do_you_want_users == True:
+            if not results['Users']: await db_query(r_obj=db_conn, query_name="create_users_table", External=False)
+            if not results['Sessions']: await db_query(r_obj=db_conn, query_name="create_sessions_table", External=False)
+            if not results['Privileges'] and privileges is not None: 
+                await db_query(r_obj=db_conn, query_name="create_privileges_table", External=False)
+                await populate_privileges_DB_table(db_conn, endpoints, privileges)
+    else: 
+        all_queries = await db_query(r_obj=db_conn, query_name="load_all_DBQueries", External=False)
+        db_conn.DBQueries.update({query["Name"]:{"Query":query["Query"], "meta":json.loads(query["meta"]) if "meta" in query else {}} for query in all_queries})
 
 async def populate_privileges_DB_table(db_conn, endpoints, privileges):
     query_payload = {}

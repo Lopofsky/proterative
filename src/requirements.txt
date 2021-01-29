@@ -1,6 +1,7 @@
+fastapi
+fastapi_login
 asyncpg
 databases[postgresql]
-fastapi
 SQLAlchemy
 #hypercorn
 uvicorn
