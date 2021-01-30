@@ -1,5 +1,5 @@
 # SOURCE: https://github.com/tiangolo/fastapi/issues/1800
-#from asyncinit import asyncinit
+# #2: https://github.com/encode/starlette/issues/658
 import asyncpg, json, time, os, copy
 
 class Database:

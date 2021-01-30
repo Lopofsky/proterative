@@ -1,4 +1,5 @@
 fastapi
+fastapi_utils
 requests
 httptools
 jinja2 
@@ -7,7 +8,6 @@ databases[postgresql]
 uvloop
 uvicorn
 python-multipart
-SQLAlchemy
 aiofiles
 asyncinit
 python-jose[cryptography]
