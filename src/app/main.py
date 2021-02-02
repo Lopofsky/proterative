@@ -6,6 +6,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 from starlette_session import SessionMiddleware
 
+from collections import defaultdict
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, environ, name as os_name, listdir
 from asyncinit import asyncinit
@@ -32,14 +33,16 @@ do_you_want_users = True if "DO_YOU_WANT_USERS" in environ and environ["DO_YOU_W
 where_am_i = environ["WHERE_AM_I"] if "WHERE_AM_I" in environ and environ["WHERE_AM_I"] not in ('', None) else "PRODUCTION"
 
 async def Auth(request, payload, URL=None):
-    #elif user in request.session and request.session[user]['data'][0] == '2': await clear_session(request)
     Session_Decoded = jwt.decode(request.session["session"], SESSION_SECRET) if "session" in request.session else {}
-    user = Session_Decoded['username'] if 'username' in Session_Decoded else None
-    print(">>> request.session =", request.session)
+    user, mandatory_login, mandatory_logout = Session_Decoded['username'] if 'username' in Session_Decoded else None, False, False
     if do_you_want_users==True and user is not None and user in users.keys() and URL in privileges and len(privileges[URL]) > 0: user_has_access = any(g in users[user]['roles'] for g in privileges[URL])
-    else: user_has_access = False if URL in privileges and len(privileges[URL]) > 0 else True
-    if URL == 'login' or user_has_access == False: return await login(request=request, payload=payload, users=users, SESSION_SECRET=SESSION_SECRET)
-    if URL == 'logout': return await logout(request=request)
+    elif URL in privileges and len(privileges[URL]) > 0 and user is None: mandatory_login = True
+    elif URL not in privileges or len(privileges[URL]) == 0: user_has_access = True
+    else: user_has_access = False
+    server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
+    if not ("session" in request.session and request.session["session"] in server_sessions_tokens): mandatory_logout = True
+    if URL == 'login' or mandatory_login: return await login(request=request, payload=payload, users=users, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions)
+    if URL == 'logout' or mandatory_logout: return await logout(request=request, Session_Decoded=Session_Decoded, Server_Sessions=server_sessions)
     if URL == 'register': return await register(Session_Decoded=Session_Decoded, request=request)
     return user_has_access
 
@@ -58,6 +61,8 @@ async def root(request: Request):
     user_has_access = await Auth(request=request, payload=payload, URL=URL) if URL not in path_exceptions else False
     if type(user_has_access) in (HTMLResponse, RedirectResponse): return user_has_access
     if user_has_access == True:
+        print("server session: ", server_sessions)
+        #print("request.session: ", request.session["session"], "| USER: ", server_sessions_tokens[request.session["session"]])
         payload.update(await front_End_2DB(payload, request))
         URL = URL + ".html" if URL.find(".html") == -1 else URL
         renderer = URL[0:URL.find(".html")] + "_main"
@@ -125,14 +130,11 @@ class Database:
         except: self.available = {}
 
 @asyncinit
-class Sessions:
+class Server_Sessions:
     __metaclass__ = Singleton
     async def __init__(self):
-        x = lambda x: json.loads(x)
-        try: 
-            res = await db_query(r_obj=app.state.db, query_name="load_sessions", External=False)
-            self.available = {x(r['m'])['username']:x(r['m']) for r in res}
-        except: self.available = {}
+        print("@@@@@@@@@@ Server_Sessions INIT @@@@@@@@@@@@@@")
+        self.available = defaultdict(dict)
 
 async def discovered_endpoints():
     endpoints = {x.replace('_main', ''):"py" for x in options.keys()}
@@ -146,15 +148,15 @@ async def basic_DB_tables(reload_all_DBQueries=False):
     else: await generate_basic_DB_tables(db_conn=app.state.db, do_you_want_users=do_you_want_users, endpoints=None, privileges=None, reload_all_DBQueries=reload_all_DBQueries)
 
 async def load_users_privileges_sessions_DBQueries(reload_g=False):
-    das_globals = ['users', 'privileges', 'sessions', 'DBQueries']
+    das_globals = ['users', 'privileges', 'server_sessions', 'DBQueries']
     G = list(globals().keys())
     if (not all(g in G for g in das_globals)) or (reload_g is not False and reload_g in das_globals):
             if reload_g == 'users' or 'users' not in G: 
                 globals().update({"users":dict({k:v for k,v in (await Users()).available.items()})})
             if reload_g == 'privileges' or 'privileges' not in G:
                 globals().update({"privileges":dict({k:v['roles'] for k,v in (await Privileges()).available.items()})})
-            if reload_g == 'sessions' or 'sessions' not in G:
-                globals().update({"sessions":{username:metadata for username, metadata in (await Sessions()).available.items()}})
+            if reload_g == 'server_sessions' or 'server_sessions' not in G:
+                globals().update({"server_sessions":{username:metadata for username, metadata in (await Server_Sessions()).available.items()}})
             if reload_g == 'DBQueries': await basic_DB_tables(reload_all_DBQueries=True)
     elif (reload_g is not False and reload_g not in das_globals): raise Exception("Unknown Global Variable Requested to be Reloaded ->", reload_g)
     else: pass
