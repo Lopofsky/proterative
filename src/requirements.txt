@@ -1,5 +1,6 @@
-fastapi
-fastapi_utils
+bcrypt
+starlette
+starlette-session
 requests
 httptools
 jinja2 
