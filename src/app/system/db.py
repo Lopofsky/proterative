@@ -70,6 +70,10 @@ class Database:
             "update_privileges":{
                 "Query":''' UPDATE "Privileges" SET "meta" = {meta} WHERE "ID"={ID}; ''',
                 "meta":{"Payload":{"ID":"int", "meta":"json"}}
+            },
+            "create_new_user":{
+                "Query":''' INSERT INTO "Users" ("username", "password", "roles", "metadata") VALUES({username}, {hashpass}, {roles}, {metadata}); ''',
+                "meta":{"Payload":{"username":"text", "hashpass":"text", "roles":"json", "metadata":"json"}}
             }
         } # todo: Redis
 

@@ -4,6 +4,7 @@ from starlette.responses import Response, HTMLResponse, RedirectResponse
 from starlette.applications import Starlette
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
+from starlette.exceptions import HTTPException
 from starlette_session import SessionMiddleware
 
 from collections import defaultdict
@@ -40,10 +41,12 @@ async def Auth(request, payload, URL=None):
     elif URL not in privileges or len(privileges[URL]) == 0: user_has_access = True
     else: user_has_access = False
     server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
-    if not ("session" in request.session and request.session["session"] in server_sessions_tokens): mandatory_logout = True
+    if not ("session" in request.session and request.session["session"] in server_sessions_tokens) and user is not None: mandatory_logout = True
+    if URL == 'register':
+        if user in users and 'roles' in users[user] and 'registrant' in users[user]['roles']: return await register(request=request, payload=payload, Session_Decoded=Session_Decoded, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions, users=users)
+        else: mandatory_login = True
     if URL == 'login' or mandatory_login: return await login(request=request, payload=payload, users=users, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions)
     if URL == 'logout' or mandatory_logout: return await logout(request=request, Session_Decoded=Session_Decoded, Server_Sessions=server_sessions)
-    if URL == 'register': return await register(Session_Decoded=Session_Decoded, request=request)
     return user_has_access
 
 async def root(request: Request):
@@ -61,8 +64,6 @@ async def root(request: Request):
     user_has_access = await Auth(request=request, payload=payload, URL=URL) if URL not in path_exceptions else False
     if type(user_has_access) in (HTMLResponse, RedirectResponse): return user_has_access
     if user_has_access == True:
-        print("server session: ", server_sessions)
-        #print("request.session: ", request.session["session"], "| USER: ", server_sessions_tokens[request.session["session"]])
         payload.update(await front_End_2DB(payload, request))
         URL = URL + ".html" if URL.find(".html") == -1 else URL
         renderer = URL[0:URL.find(".html")] + "_main"
@@ -117,7 +118,7 @@ class Users:
     async def __init__(self):
         #try:
         res = await db_query(r_obj=app.state.db, query_name="load_users", External=False)
-        self.available = {r['username']:{'ID':r['ID'], 'metadata':json.loads(r['metadata']), 'roles':json.loads(r['roles']), 'password':json.loads(r['password'])} for r in res} 
+        self.available = {r['username']:{'ID':r['ID'], 'metadata':json.loads(r['metadata']), 'roles':json.loads(r['roles']), 'password':r['password']} for r in res} 
         #except: self.available = {}
 
 @asyncinit
@@ -133,7 +134,6 @@ class Database:
 class Server_Sessions:
     __metaclass__ = Singleton
     async def __init__(self):
-        print("@@@@@@@@@@ Server_Sessions INIT @@@@@@@@@@@@@@")
         self.available = defaultdict(dict)
 
 async def discovered_endpoints():
@@ -167,6 +167,44 @@ routes = [
     Route("/{URL}/{rest_of_path:path}", endpoint=root, methods=["GET", "POST"])
 ]
 
-app = Starlette(debug=True if where_am_i == "development" else False , routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries])
+async def http_exception(request, exc):
+    try:
+        if exc.status_code == 500: message = "Lovely Day!"
+        elif exc.status_code == 403: message = str(exc.detail)
+        else: message = "Lovely Day!"
+    except AttributeError: message = str(exc)
+    return HTMLResponse(content="""<html> <head>
+                <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .imgbox {
+                        display: grid;
+                        height: 100%;
+                    }
+                    .center-fit {
+                        max-width: 100%;
+                        max-height: 100vh;
+                        margin: auto;
+                    }
+                </style>
+            </head>
+            <body>
+            <h1>This is what happened: {message} </h1>
+            <h4>~ “All work and no play makes devs dull boys.”</h4>
+            <div class="imgbox">
+                <img class="center-fit" src='https://i.redd.it/s550dkwyk8621.jpg'>
+            </div>
+            </body>
+            </html>""".replace("message", message), status_code=200, media_type='text/html')
+
+exception_handlers = {
+    #404: not_found,
+    403: http_exception,
+    500: http_exception
+}
+
+app = Starlette(debug=True if where_am_i == "development" else False , routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries], exception_handlers=exception_handlers)
 app.add_middleware(SessionMiddleware, secret_key="secret", cookie_name="session")
 #app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
