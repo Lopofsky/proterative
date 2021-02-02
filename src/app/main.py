@@ -44,6 +44,7 @@ async def Auth(request, payload, URL=None):
     if not ("session" in request.session and request.session["session"] in server_sessions_tokens) and user is not None: mandatory_logout = True
     if URL == 'register':
         if user in users and 'roles' in users[user] and 'registrant' in users[user]['roles']: return await register(request=request, payload=payload, Session_Decoded=Session_Decoded, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions, users=users)
+        elif user is not None: user_has_access = False
         else: mandatory_login = True
     if URL == 'login' or mandatory_login: return await login(request=request, payload=payload, users=users, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions)
     if URL == 'logout' or mandatory_logout: return await logout(request=request, Session_Decoded=Session_Decoded, Server_Sessions=server_sessions)
