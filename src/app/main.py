@@ -1,6 +1,4 @@
-#from starlette.responses import JSONResponse
-
-from starlette.routing import Route
+from starlette.routing import Route, Mount
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.applications import Starlette
@@ -37,28 +35,27 @@ async def fake_session(user: str):
 
 
 async def root(request: Request, rest_of_path: str=''):
-    Path_Param1 = request["path_params"]["Path_Param1"]
-    if Path_Param1 == '': Path_Param1 = 'index'
-    #await load_users_privileges_sessions_DBQueries(reload_g="privileges")
-    await load_users_privileges_sessions_DBQueries(reload_g="users")
+    #allowed_media_file_paths = ["static", "media"]
+    path_exceptions, err_page = ["forbidden"], "forbidden/403"
+    Path_Param1 = request["path_params"]["Path_Param1"] if "Path_Param1" in request["path_params"] else 'index'
+    full_path = Path_Param1 if 'rest_of_path' not in request['path_params'] else Path_Param1 + "/" + request["path_params"]["rest_of_path"]
+    await load_users_privileges_sessions_DBQueries(reload_g="users") #sessions
     ########## TESTING AREA [START]
     user = await fake_session('test')
     print("Path_Param1 ->", Path_Param1)
     print("privileges ->", privileges[Path_Param1] if Path_Param1 in privileges else "Other:"+Path_Param1)
     print("THE USERS = ", users)
-    #print("users ->", users[user]['roles'])
+    print("users ->", users[user]['roles'])
     if do_you_want_users==True and user!=False and user in users.keys() and Path_Param1 in privileges and len(privileges[Path_Param1]) > 0:
         user_has_access = any(g in users[user]['roles'] for g in privileges[Path_Param1])
-    else: 
-        user_has_access = False if Path_Param1 in privileges and len(privileges[Path_Param1]) > 0 else True
+    else: user_has_access = False if Path_Param1 in privileges and len(privileges[Path_Param1]) > 0 else True
     if Path_Param1.replace('.html', '') in ('login', 'logout', 'private'): return await Auth(request=request, payload=payload)
     print("user_has_access ->", user_has_access)
     ########## TESTING AREA [END]
-    path_exceptions, err_page = ["forbidden"], "forbidden/403"
     payload = {"path":request.url.path}
     path_params = request["path_params"]
     if len(path_params) > 0: Path_Param1 = path_params['Path_Param1']
-    if Path_Param1 not in path_exceptions and user_has_access == True: 
+    if Path_Param1 not in path_exceptions and user_has_access == True:
         payload["page_requested"] = Path_Param1
         payload["form_data"] = {x[0]:x[1] for x in list((await request.form()).items())}
         payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if "rest_of_path" in path_params else None
@@ -66,12 +63,13 @@ async def root(request: Request, rest_of_path: str=''):
         payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
         payload.update(await front_End_2DB(payload, request))
         Path_Param1 = Path_Param1 + ".html" if Path_Param1.find(".html") == -1 else Path_Param1
-        renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there should be an "ex.py" file at routers dir (that's the module) -> Call it's "main" function.
-        if renderer in options:
+        renderer = Path_Param1[0:Path_Param1.find(".html")] + "_main" # i.e.: 1stPathParam="ex" -> there should be an "ex.py" file at routers dir (that's the module). In the next step we allow only it's "main" function to be the final endpoint.
+        if renderer in options: # Python script takes over.
             select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
             return await options[select_func[0].replace("'", "")](select_func[1].values)
-        elif Path_Param1 in html_templates: return templates.TemplateResponse(Path_Param1, {"request": request, "payload": payload})
-        else: err_page = "404"
+        elif Path_Param1 in html_templates: # Just render the template with the same name as the 1st parameter name & provide jinja2 with the payload.
+            return templates.TemplateResponse(Path_Param1, {"request": request, "payload": payload})
+        else:  err_page = "404"
     return templates.TemplateResponse(err_page+".html", {"request": request})
 
 #@app.on_event("startup")
@@ -174,9 +172,10 @@ async def Auth(request, payload):
     if do_you_want_users == True: return await authenticate(request, payload, SESSION_SECRET)
 
 routes = [
+    Mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static"),
     Route("/", endpoint=root, methods=["GET", "POST"]),
     Route("/{Path_Param1}/{rest_of_path:path}", endpoint=root, methods=["GET", "POST"])
 ]
 
 app = Starlette(debug=True if where_am_i == "development" else False , routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries])
-app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
+#app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
