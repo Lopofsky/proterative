@@ -5,8 +5,7 @@ services:
      container_name: nginx
      image: jwilder/nginx-proxy
      ports:
-        - "80:7000"
-        - "443:7000"
+        - "6000:7000"
      volumes:
         - "/etc/nginx/vhost.d"
         - "/usr/share/nginx/html"
