@@ -1,0 +1,16 @@
+# KUDOS: https://github.com/jwulf/letsencrypt-nginx-sidecar
+version: '2'
+networks:
+    letsencrypt:
+services:
+    qnd_container:
+        restart: "always"
+        image: qnd
+        container_name: "qnd_container"
+        environment:
+            PORT: 80
+            VIRTUAL_HOST: test.plushotels.gr
+            LETSENCRYPT_HOST: test.plushotels.gr
+            LETSENCRYPT_EMAIL: certifications@plushotels.gr
+        networks: 
+            - letsencrypt

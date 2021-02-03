@@ -37,7 +37,7 @@ async def Auth(request, payload, URL=None):
     Session_Decoded = jwt.decode(request.session["session"], SESSION_SECRET) if "session" in request.session else {}
     user, mandatory_login, mandatory_logout = Session_Decoded['username'] if 'username' in Session_Decoded else None, False, False
     if do_you_want_users==True and user is not None and user in users.keys() and URL in privileges and len(privileges[URL]) > 0: user_has_access = any(g in users[user]['roles'] for g in privileges[URL])
-    elif URL in privileges and len(privileges[URL]) > 0 and user is None: mandatory_login = True
+    elif URL in privileges and len(privileges[URL]) > 0 and user is None: mandatory_login, user_has_access = True, False
     elif URL not in privileges or len(privileges[URL]) == 0: user_has_access = True
     else: user_has_access = False
     server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
@@ -80,7 +80,7 @@ async def DB_startup():
     app.state.db = DB
 
 async def utility_initializers():
-    await convert_your_html_files()        
+    await convert_your_html_files(where_am_i)        
 
 async def load_all(module_2_import=module_2_import):
     if getcwd().find(fs+"app") == -1: chdir("app"+fs)
@@ -206,6 +206,6 @@ exception_handlers = {
     500: http_exception
 }
 
-app = Starlette(debug=True if where_am_i == "development" else False , routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries], exception_handlers=exception_handlers)
+app = Starlette(debug=True if where_am_i in ("development", "docker_dev") else False , routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries], exception_handlers=exception_handlers)
 app.add_middleware(SessionMiddleware, secret_key="secret", cookie_name="session")
 #app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")

@@ -18,6 +18,23 @@ ARG POSTGRES_DB
 ENV POSTGRES_DB=$POSTGRES_DB
 ARG POSTGRES_PORT
 ENV POSTGRES_PORT=$POSTGRES_PORT
+ARG SESSION_SECRET
+ENV SESSION_SECRET=$SESSION_SECRET
+ARG DO_YOU_WANT_USERS
+ENV DO_YOU_WANT_USERS=$DO_YOU_WANT_USERS
+ARG WHERE_AM_I
+ENV WHERE_AM_I=$WHERE_AM_I
 
+# Set to the port that your webapp listens on
+ENV VIRTUAL_PORT=7000
+# Can be comma-separated lis
+ENV VIRTUAL_HOST=test.plushotels.gr
+# The domain for the cert, can also be comma-separated
+ENV LETSENCRYPT_HOST=test.plushotels.gr
+# Your email for the cert
+ENV LETSENCRYPT_EMAIL=test.plushotels.gr
+# 192.168.1.88
 EXPOSE 7000
-CMD ["gunicorn", "app.main:app", "--reload", "--workers", "4", "--bind", "0.0.0.0:7000", "-k", "uvicorn.workers.UvicornWorker"]
+#CMD ["whereis", "uvicorn"]
+#CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7000" "--reload"]
+CMD ["uvicorn", "app.main:app", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]

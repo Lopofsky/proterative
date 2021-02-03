@@ -1,7 +1,11 @@
-from os import name as os_name, walk, getcwd
+from os import name as os_name, walk, getcwd, chdir, listdir
 
-async def convert_your_html_files():
-    fs, path = "\\" if os_name == 'nt' else '/', getcwd()
+async def convert_your_html_files(where_am_i):
+    fs = "\\" if os_name == 'nt' else '/'
+    if where_am_i.find('docker') > -1:
+        path = "/app"
+        chdir(path)
+    else: path = getcwd()
     for root, directories, filenames in walk(path):
         for a_file in filenames:
             if a_file.endswith('.html'):
