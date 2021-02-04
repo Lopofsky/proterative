@@ -26,4 +26,4 @@ ARG WHERE_AM_I
 ENV WHERE_AM_I=$WHERE_AM_I
 
 EXPOSE 7000
-CMD ["uvicorn", "app.main:app", "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
+CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips", "127.0.0.1,test.nepheli.org",  "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
