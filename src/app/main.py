@@ -73,6 +73,12 @@ async def root(request: Request):
             return await options[select_func[0].replace("'", "")](select_func[1].values)
         elif URL in html_templates: return templates.TemplateResponse(URL, {"request": request, "payload": payload})
         else:  err_page = "404"
+    '''
+    request.scope['type'] = 'https'
+    request.scope['scheme'] = 'https'
+    print("request.url.scheme -> ", request.url.scheme)
+    print("request.scope['scheme'] -> ", request.scope['scheme'])
+    '''
     return templates.TemplateResponse(err_page+".html", {"request": request})
 
 async def DB_startup():
