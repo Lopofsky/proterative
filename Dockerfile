@@ -26,4 +26,5 @@ ARG WHERE_AM_I
 ENV WHERE_AM_I=$WHERE_AM_I
 
 EXPOSE 7000
-CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips=test.nepheli.org", "--ssl-certfile", "/etc/letsencrypt/live/test.nepheli.org/fullchain.pem", "--ssl-keyfile", "/etc/letsencrypt/live/test.nepheli.org/privkey.pem", "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
+#CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips=test.nepheli.org", "--ssl-certfile", "/etc/letsencrypt/live/test.nepheli.org/fullchain.pem", "--ssl-keyfile", "/etc/letsencrypt/live/test.nepheli.org/privkey.pem", "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
+CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips=test.nepheli.org",  "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
