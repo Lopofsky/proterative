@@ -24,12 +24,14 @@ ARG DO_YOU_WANT_USERS
 ENV DO_YOU_WANT_USERS=$DO_YOU_WANT_USERS
 ARG WHERE_AM_I
 ENV WHERE_AM_I=$WHERE_AM_I
-# todo
+# SSL
+ARG FORWARDED_ALLOW_IPS
+ENV FORWARDED_ALLOW_IPS=$FORWARDED_ALLOW_IPS
 ARG SSL_CERTIFICATE
 ENV SSL_CERTIFICATE=$SSL_CERTIFICATE
 ARG SSL_KEYFILE
 ENV SSL_KEYFILE=$SSL_KEYFILE
 
 EXPOSE 7000
-#CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips='*'", "--ssl-certfile", SSL_CERTIFICATE, "--ssl-keyfile", SSL_KEYFILE, "--proxy-headers", "--reload", "True", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
-CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips='*'",  "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
+CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips='*'", "--ssl-certfile", "$SSL_CERTIFICATE", "--ssl-keyfile", "$SSL_KEYFILE", "--proxy-headers", "--reload", "True", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
+#CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips='*'",  "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
