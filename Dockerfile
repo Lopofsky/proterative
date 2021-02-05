@@ -33,5 +33,5 @@ ARG SSL_KEYFILE
 ENV SSL_KEYFILE=$SSL_KEYFILE
 
 EXPOSE 7000
-CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips='*'", "--ssl-certfile", "$SSL_CERTIFICATE", "--ssl-keyfile", "$SSL_KEYFILE", "--proxy-headers", "--reload", "True", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
+CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips", "--ssl-certfile", "$SSL_CERTIFICATE", "--ssl-keyfile", "$SSL_KEYFILE", "--proxy-headers", "--reload", "True", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
 #CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips='*'",  "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
