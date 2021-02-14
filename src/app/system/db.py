@@ -146,7 +146,7 @@ async def generate_basic_DB_tables(db_conn, do_you_want_users, endpoints, privil
             if not results['Sessions']: await db_query(r_obj=db_conn, query_name="create_sessions_table", External=False)
             if not results['Privileges']:
                 await db_query(r_obj=db_conn, query_name="create_privileges_table", External=False)
-            if privileges is not None:
+            if privileges is not None and endpoints is not None:
                 await populate_privileges_DB_table(db_conn, endpoints, privileges)
     else: 
         all_queries = await db_query(r_obj=db_conn, query_name="load_all_DBQueries", External=False)

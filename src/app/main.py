@@ -139,7 +139,8 @@ class Server_Sessions:
 
 async def discovered_endpoints():
     endpoints = {x.replace('_main', ''):"py" for x in options.keys()}
-    return endpoints.update({x.replace('.html', ''):"html" for x in html_templates if x.replace('.html', '') not in endpoints.keys()})
+    endpoints.update({x.replace('.html', ''):"html" for x in html_templates if x.replace('.html', '') not in endpoints.keys()})
+    return endpoints
 
 async def basic_DB_tables(reload_all_DBQueries=False):
     if reload_all_DBQueries == False:
