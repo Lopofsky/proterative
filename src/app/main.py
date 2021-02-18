@@ -43,11 +43,11 @@ async def Auth(request, payload, URL=None):
     server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
     if not ("session" in request.session and request.session["session"] in server_sessions_tokens) and user is not None: mandatory_logout = True
     if URL == 'register':
-        if user in users and 'roles' in users[user] and 'registrant' in users[user]['roles']: return await register(request=request, payload=payload, Session_Decoded=Session_Decoded, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions, users=users)
+        if user in users and 'roles' in users[user] and 'registrant' in users[user]['roles']: return await register(request=request, payload=payload, Session_Decoded=Session_Decoded, SESSION_SECRET=SESSION_SECRET, render_template=templates.TemplateResponse, Server_Sessions=server_sessions, users=users)
         elif user is not None: user_has_access = False
         else: mandatory_login = True
-    if URL == 'login' or mandatory_login: return await login(request=request, payload=payload, users=users, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions)
-    if URL == 'logout' or mandatory_logout: return await logout(request=request, Session_Decoded=Session_Decoded, Server_Sessions=server_sessions)
+    if URL == 'login' or mandatory_login: return await login(request=request, payload=payload, users=users, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions, render_template=templates.TemplateResponse)
+    if URL == 'logout' or mandatory_logout: return await logout(request=request, Session_Decoded=Session_Decoded, Server_Sessions=server_sessions, render_template=templates.TemplateResponse)
     return user_has_access
 
 async def root(request: Request):
@@ -63,7 +63,7 @@ async def root(request: Request):
     qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
     payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
     user_has_access = await Auth(request=request, payload=payload, URL=URL) if URL not in path_exceptions else False
-    if type(user_has_access) in (HTMLResponse, RedirectResponse): return user_has_access
+    if type(user_has_access) in (HTMLResponse, RedirectResponse) or str(type(user_has_access)) == "<class 'starlette.templating._TemplateResponse'>": return user_has_access
     if user_has_access == True:
         payload.update(await front_End_2DB(payload, request))
         URL = URL + ".html" if URL.find(".html") == -1 else URL
@@ -72,7 +72,7 @@ async def root(request: Request):
             select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
             return await options[select_func[0].replace("'", "")](select_func[1].values)
         elif URL in html_templates: return templates.TemplateResponse(URL, {"request": request, "payload": payload})
-        else:  err_page = "404"
+        else: err_page = "404"
     return templates.TemplateResponse(err_page+".html", {"request": request})
 
 async def DB_startup():

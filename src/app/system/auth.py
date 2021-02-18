@@ -19,7 +19,7 @@ else:
 
 from datetime import datetime as dt
 
-async def login(request: Request, payload, SESSION_SECRET, Server_Sessions=None, users=None):
+async def login(request: Request, payload, SESSION_SECRET, render_template, Server_Sessions=None, users=None):
     if request.method == "GET" or payload is None:
         return HTMLResponse(content="""<html>
             <form action="/login" method="post">
@@ -46,12 +46,12 @@ async def login(request: Request, payload, SESSION_SECRET, Server_Sessions=None,
         page_redirect = payload["form_data"]["previous_page"] if payload["form_data"]["previous_page"].find("login") == -1 else "index"
         return RedirectResponse(url="/"+page_redirect, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-async def logout(request: Request, Session_Decoded, Server_Sessions):
+async def logout(request: Request, Session_Decoded, Server_Sessions, render_template):
     Server_Sessions.pop(Session_Decoded['username'] if 'username' in Session_Decoded else None, None)
     request.session.clear()
     return False
 
-async def register(request, payload, Session_Decoded, SESSION_SECRET, Server_Sessions, users):
+async def register(request, payload, Session_Decoded, SESSION_SECRET, Server_Sessions, users, render_template):
     if request.method == "GET" or payload is None:
         return HTMLResponse(content="""<html>
             <form action="/register" method="post">
