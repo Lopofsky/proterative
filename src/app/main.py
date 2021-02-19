@@ -65,6 +65,11 @@ async def root(request: Request):
     user_has_access = await Auth(request=request, payload=payload, URL=URL) if URL not in path_exceptions else False
     if type(user_has_access) in (HTMLResponse, RedirectResponse) or str(type(user_has_access)) == "<class 'starlette.templating._TemplateResponse'>": return user_has_access
     if user_has_access == True:
+        server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
+        if "session" in request.session: 
+            active_user = server_sessions_tokens[request.session["session"]]
+            payload.update({"session":{"username":active_user, "meta":server_sessions[active_user]["data"]}})
+        else: payload.update({"session":{}})
         payload.update(await front_End_2DB(payload, request))
         URL = URL + ".html" if URL.find(".html") == -1 else URL
         renderer = URL[0:URL.find(".html")] + "_main"

@@ -27,7 +27,7 @@ async def login(request: Request, payload, SESSION_SECRET, render_template, Serv
             <br>
             Password: <input type="password" name="password" required></br>
             <input type="hidden" name="previous_page" value="{previous_page}">
-            <input type="submit" value="Login">
+            <input type="submit" value="Register">
             </form></html>""".format(previous_page=payload["page_requested"]), status_code=200, media_type='text/html')
     forms_needed = ["username", "password"]
     if request.method == "POST" and type(payload) == dict and all(f in payload["form_data"].keys() for f in forms_needed):
