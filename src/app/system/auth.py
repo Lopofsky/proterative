@@ -20,6 +20,7 @@ else:
 from datetime import datetime as dt
 
 async def login(request: Request, payload, SESSION_SECRET, render_template, Server_Sessions=None, users=None):
+    valid_login = False
     if request.method == "GET" or payload is None:
         return HTMLResponse(content="""<html>
             <form action="/login" method="post">
@@ -33,12 +34,14 @@ async def login(request: Request, payload, SESSION_SECRET, render_template, Serv
     if request.method == "POST" and type(payload) == dict and all(f in payload["form_data"].keys() for f in forms_needed):
         f = payload["form_data"]
         username, password = f["username"], f["password"]
-        db_password = users[username]["password"]
-        try: check_hash, valid_login = bcrypt.hashpw(password, db_password), True
-        except(TypeError, ValueError):
-            password, db_password = password.encode('utf-8'), db_password.encode('utf-8')
+        if username in users:
+            valid_login = True
+            db_password = users[username]["password"]
             try: check_hash, valid_login = bcrypt.hashpw(password, db_password), True
-            except(TypeError,ValueError): valid_login = False
+            except(TypeError, ValueError):
+                password, db_password = password.encode('utf-8'), db_password.encode('utf-8')
+                try: check_hash, valid_login = bcrypt.hashpw(password, db_password), True
+                except(TypeError,ValueError): valid_login = False
         if not valid_login: raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user or password")
         token = jwt.encode({"username": username, "data": str(dt.now())}, SESSION_SECRET)
         request.session.update({"session": token})

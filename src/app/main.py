@@ -68,6 +68,10 @@ async def root(request: Request):
         server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
         if "session" in request.session: 
             active_user = server_sessions_tokens[request.session["session"]]
+            if 'server_side_session' in payload['form_data']:
+                try: extra_session_data = json.loads(payload['form_data']['server_side_session'].replace("'", '"'))
+                except: raise Exception("server_side_session payload is not in a valid json format!")
+                server_sessions[active_user]["data"].update(extra_session_data)
             payload.update({"session":{"username":active_user, "meta":server_sessions[active_user]["data"]}})
         else: payload.update({"session":{}})
         payload.update(await front_End_2DB(payload, request))
@@ -180,6 +184,8 @@ async def http_exception(request, exc):
         elif exc.status_code == 403: message = str(exc.detail)
         else: message = "Lovely Day!"
     except AttributeError: message = str(exc)
+    if where_am_i not in ("development", "docker_dev") and exc.status_code == 500: message = "Please Contact the Administrator!"
+    # Using python's "format", causes conflict with the CSS syntax.
     return HTMLResponse(content="""<html> <head>
                 <style>
                     * {
@@ -212,6 +218,6 @@ exception_handlers = {
     500: http_exception
 }
 
-app = Starlette(debug=True if where_am_i in ("development", "docker_dev") else False , routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries], exception_handlers=exception_handlers)
+app = Starlette(debug=True if where_am_i in ("development", "docker_dev") else False, routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries], exception_handlers=exception_handlers)
 app.add_middleware(SessionMiddleware, secret_key="secret", cookie_name="session")
 #app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")
