@@ -39,4 +39,5 @@ EXPOSE 7000
 #CMD ["sh", "-c", "uvicorn app.main:app --forwarded-allow-ips $FORWARDED_ALLOW_IPS --ssl-certfile $SSL_CERTIFICATE --ssl-keyfile $SSL_KEYFILE --proxy-headers --reload --workers 4 --host 0.0.0.0 --port 7000"]
 #CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips", "$FORWARDED_ALLOW_IPS", "--ssl-certfile", "$SSL_CERTIFICATE", "--ssl-keyfile", "$SSL_KEYFILE", "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
 #CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips", "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
-CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips", "*", "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
+#CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips", "*", "--proxy-headers", "--reload", "--workers", "4", "--host", "0.0.0.0", "--port", "7000"]
+CMD ["python", "run.py"]
