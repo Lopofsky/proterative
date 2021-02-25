@@ -7,31 +7,117 @@ from starlette.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
 from starlette_session import SessionMiddleware
 
+from pathlib import Path
+from datetime import datetime
 from collections import defaultdict
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, environ, name as os_name, listdir
 from asyncinit import asyncinit
 from jose import jwt
-import sys, json, glob, importlib
+import sys, json, glob, importlib, shutil, os, copy
 
 if __package__ is None or __package__ == '':
     # uses current directory visibility
     from system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
     from system.auth import *
+    from system.html_input2json import make_dict_from_dotted_string
     from system.utilities import convert_your_html_files
 else:
     # uses current package visibility
     sys.path.append(".")
     from .system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
     from .system.auth import *
+    from .system.html_input2json import make_dict_from_dotted_string
     from .system.utilities import convert_your_html_files
 
 fs, parent, DB, module_2_import = "\\" if os_name == 'nt' else '/', dirname(realpath(__file__)), Database(), "routers"
 templates_dir = parent+fs+"decoration"+fs+"templates"
 templates = Jinja2Templates(directory=templates_dir)
-SESSION_SECRET = environ["SESSION_SECRET"]
+def now_datetime(date_format):
+    date_format = "%Y-%m-%d %H:%M:%S" if date_format in (None, '') else date_format
+    return datetime.now().strftime(date_format)
+templates.env.filters['now'] = now_datetime
+SESSION_SECRET, UPLOADS_PATH = environ["SESSION_SECRET"], environ["UPLOADS_PATH"].replace('"', '').replace('"', '')
 do_you_want_users = True if "DO_YOU_WANT_USERS" in environ and environ["DO_YOU_WANT_USERS"] == "True" else False
 where_am_i = environ["WHERE_AM_I"] if "WHERE_AM_I" in environ and environ["WHERE_AM_I"] not in ('', None) else "PRODUCTION"
+
+async def save_up_files(init_form, keyword='FILEUPLOAD'):
+    init_form = init_form
+    form = copy.deepcopy(init_form)
+    for k, v in form.items():
+        if k.find(keyword) > -1:
+            custom_path = k[k.find(keyword)+len(keyword):].replace(".", "").replace("/", fs)
+            path = UPLOADS_PATH+fs+custom_path+fs
+            form_name = k[:k.find(keyword)]
+            if form_name[-1] == '.': form_name = form_name[:-1]
+            Path(path).mkdir(parents=True, exist_ok=True)
+            v.file.seek(0)
+            init_form.pop(k, None)
+            if v.filename != '':
+                with open(path+v.filename, "wb") as buffer:
+                    shutil.copyfileobj(v.file, buffer)
+                init_form[form_name] = {v.filename:{'path':path, 'content_type':v.content_type}}
+            else: init_form[form_name] = None
+    return init_form
+
+async def root(request: Request):
+    path_exceptions, err_page = ["forbidden"], "forbidden/403"
+    payload = {"path":request.url.path}
+    path_params = request["path_params"]
+    URL = path_params["URL"] if "URL" in path_params else 'index'
+    full_path = URL if 'rest_of_path' not in path_params else URL + "/" + path_params["rest_of_path"]
+    #await load_users_privileges_sessions_DBQueries(reload_g="users") #sessions
+    payload["page_requested"] = URL
+    payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if "rest_of_path" in path_params else None
+    qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
+    payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
+    user_has_access = await Auth(request=request, payload=payload, URL=URL) if URL not in path_exceptions else False
+    if type(user_has_access) in (HTMLResponse, RedirectResponse) or str(type(user_has_access)) == "<class 'starlette.templating._TemplateResponse'>": return user_has_access
+    if user_has_access == True:
+        form = await request.form()
+        payload["form_data"] = {k:v for k, v in form.multi_items()}
+        payload["form_data"] = await save_up_files(payload["form_data"])
+        payload["form_data"]  = await make_dict_from_dotted_string(payload["form_data"], input_name_str_exception="Uploads")
+        payload.update(await front_End_2DB(payload, request))
+        server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
+        if "session" in request.session: 
+            active_user = server_sessions_tokens[request.session["session"]]
+            if 'server_side_session' in payload['form_data']:
+                try: extra_session_data = json.loads(payload['form_data']['server_side_session'].replace("'", '"'))
+                except: raise Exception("server_side_session payload is not in a valid json format!")
+                server_sessions[active_user]["data"].update(extra_session_data)
+            payload.update({"session":{"username":active_user, "meta":server_sessions[active_user]["data"]}})
+        else: payload.update({"session":{}})
+        URL = URL + ".html" if URL.find(".html") == -1 else URL
+        renderer = URL[0:URL.find(".html")] + "_main"
+        if renderer in options:
+            select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
+            return await options[select_func[0].replace("'", "")](select_func[1].values)
+        elif URL in html_templates: return templates.TemplateResponse(URL, {"request": request, "payload": payload})
+        else: err_page = "404"
+    return templates.TemplateResponse(err_page+".html", {"request": request})
+
+async def utility_initializers():
+    print(environ)
+    await convert_your_html_files(where_am_i)        
+
+async def DB_startup():
+    await DB.connect()
+    app.state.db = DB
+
+async def load_all(module_2_import=module_2_import):
+    if getcwd().find(fs+"app") == -1: chdir("app"+fs)
+    if getcwd().find(module_2_import) == -1: chdir(module_2_import)
+    modules = glob.glob(join(getcwd(), "*.py"))
+    __all__ = [basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]
+    if getcwd().find(module_2_import) >= 0: chdir('..')
+    try: all_modules = [importlib.import_module(module_2_import+'.'+i) for i in __all__]
+    except Exception as e: raise e
+    names = {(m.__name__, x):m for m in all_modules for x in m.__dict__ if x=='main'}
+    globals_dict = {module_meta[0][len(module_2_import)+1:]+'_'+module_meta[1]: getattr(module_data, module_meta[1]) for module_meta, module_data in names.items()}
+    globals_dict['options'] = {str(x):y for x, y in globals_dict.items()}
+    globals_dict['html_templates'] = [f for f in listdir(templates_dir) if f.endswith(".html")]
+    globals().update(globals_dict)
 
 async def Auth(request, payload, URL=None):
     Session_Decoded = jwt.decode(request.session["session"], SESSION_SECRET) if "session" in request.session else {}
@@ -49,61 +135,6 @@ async def Auth(request, payload, URL=None):
     if URL == 'login' or mandatory_login: return await login(request=request, payload=payload, users=users, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions, render_template=templates.TemplateResponse)
     if URL == 'logout' or mandatory_logout: return await logout(request=request, Session_Decoded=Session_Decoded, Server_Sessions=server_sessions, render_template=templates.TemplateResponse)
     return user_has_access
-
-async def root(request: Request):
-    path_exceptions, err_page = ["forbidden"], "forbidden/403"
-    payload = {"path":request.url.path}
-    path_params = request["path_params"]
-    URL = path_params["URL"] if "URL" in path_params else 'index'
-    full_path = URL if 'rest_of_path' not in path_params else URL + "/" + path_params["rest_of_path"]
-    await load_users_privileges_sessions_DBQueries(reload_g="users") #sessions
-    payload["page_requested"] = URL
-    payload["form_data"] = {x[0]:x[1] for x in list((await request.form()).items())}
-    payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if "rest_of_path" in path_params else None
-    qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
-    payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
-    user_has_access = await Auth(request=request, payload=payload, URL=URL) if URL not in path_exceptions else False
-    if type(user_has_access) in (HTMLResponse, RedirectResponse) or str(type(user_has_access)) == "<class 'starlette.templating._TemplateResponse'>": return user_has_access
-    if user_has_access == True:
-        server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
-        if "session" in request.session: 
-            active_user = server_sessions_tokens[request.session["session"]]
-            if 'server_side_session' in payload['form_data']:
-                try: extra_session_data = json.loads(payload['form_data']['server_side_session'].replace("'", '"'))
-                except: raise Exception("server_side_session payload is not in a valid json format!")
-                server_sessions[active_user]["data"].update(extra_session_data)
-            payload.update({"session":{"username":active_user, "meta":server_sessions[active_user]["data"]}})
-        else: payload.update({"session":{}})
-        payload.update(await front_End_2DB(payload, request))
-        URL = URL + ".html" if URL.find(".html") == -1 else URL
-        renderer = URL[0:URL.find(".html")] + "_main"
-        if renderer in options: 
-            select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
-            return await options[select_func[0].replace("'", "")](select_func[1].values)
-        elif URL in html_templates: return templates.TemplateResponse(URL, {"request": request, "payload": payload})
-        else: err_page = "404"
-    return templates.TemplateResponse(err_page+".html", {"request": request})
-
-async def DB_startup():
-    await DB.connect()
-    app.state.db = DB
-
-async def utility_initializers():
-    await convert_your_html_files(where_am_i)        
-
-async def load_all(module_2_import=module_2_import):
-    if getcwd().find(fs+"app") == -1: chdir("app"+fs)
-    if getcwd().find(module_2_import) == -1: chdir(module_2_import)
-    modules = glob.glob(join(getcwd(), "*.py"))
-    __all__ = [basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]
-    if getcwd().find(module_2_import) >= 0: chdir('..')
-    try: all_modules = [importlib.import_module(module_2_import+'.'+i) for i in __all__]
-    except Exception as e: raise e
-    names = {(m.__name__, x):m for m in all_modules for x in m.__dict__ if x=='main'}
-    globals_dict = {module_meta[0][len(module_2_import)+1:]+'_'+module_meta[1]: getattr(module_data, module_meta[1]) for module_meta, module_data in names.items()}
-    globals_dict['options'] = {str(x):y for x, y in globals_dict.items()}
-    globals_dict['html_templates'] = [f for f in listdir(templates_dir) if f.endswith(".html")]
-    globals().update(globals_dict)
 
 # I love that kind of mindset!!! Thank you!!!: https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python
 @asyncinit
@@ -183,8 +214,8 @@ async def http_exception(request, exc):
         if exc.status_code == 500: message = "Lovely Day!"
         elif exc.status_code == 403: message = str(exc.detail)
         else: message = "Lovely Day!"
+        if where_am_i not in ("development", "docker_dev") and exc.status_code == 500: message = "Please Contact the Administrator!"
     except AttributeError: message = str(exc)
-    if where_am_i not in ("development", "docker_dev") and exc.status_code == 500: message = "Please Contact the Administrator!"
     # Using python's "format", causes conflict with the CSS syntax.
     return HTMLResponse(content="""<html> <head>
                 <style>
@@ -213,11 +244,9 @@ async def http_exception(request, exc):
             </html>""".replace("message", message), status_code=200, media_type='text/html')
 
 exception_handlers = {
-    #404: not_found,
     403: http_exception,
     500: http_exception
 }
 
-app = Starlette(debug=True if where_am_i in ("development", "docker_dev") else False, routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries], exception_handlers=exception_handlers)
+app = Starlette(debug=True if where_am_i in ("development", "docker_dev") else False , routes=routes, on_startup=[DB_startup, utility_initializers, load_all, basic_DB_tables, load_users_privileges_sessions_DBQueries], exception_handlers=exception_handlers)
 app.add_middleware(SessionMiddleware, secret_key="secret", cookie_name="session")
-#app.mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static")

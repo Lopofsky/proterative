@@ -31,10 +31,12 @@ ARG SSL_CERTIFICATE
 ENV SSL_CERTIFICATE=$SSL_CERTIFICATE
 ARG SSL_KEYFILE
 ENV SSL_KEYFILE=$SSL_KEYFILE
+ARG UPLOADS_PATH
+ENV UPLOADS_PATH=$UPLOADS_PATH
 
 RUN echo "$SSL_CERTIFICATE"
 
 EXPOSE 7000
 # https://oprearocks.medium.com/how-to-properly-override-the-entrypoint-using-docker-run-2e081e5feb9d
-#CMD ["python", "run.py"]
-CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips", "*", "--proxy-headers", "--reload", "--workers", "4", "interface", "asgi3", "--host", "0.0.0.0", "--port", "7000"]
+#CMD ["uvicorn", "app.main:app", "--forwarded-allow-ips", "*", "--proxy-headers", "--reload", "--workers", "4", "--interface", "asgi3", "--host", "0.0.0.0", "--port", "7000"]
+CMD ["python", "run.py"]

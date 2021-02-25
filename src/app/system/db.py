@@ -1,6 +1,8 @@
 # SOURCE: https://github.com/tiangolo/fastapi/issues/1800
 # #2: https://github.com/encode/starlette/issues/658
-import asyncpg, json, time, os, copy, asyncio
+from collections import defaultdict
+from datetime import datetime as dt
+import asyncpg, json, time, os, copy
 
 class Database:
     def __init__(self):
@@ -79,33 +81,39 @@ class Database:
 
     async def connect(self):
         if not self._connection_pool:
-            try: self._connection_pool = await asyncpg.create_pool(min_size=1, max_size=10, command_timeout=60, host=self.db['SERVER'], port=self.db['PORT'], user=self.db['USER'], password=self.db['PASSWORD'], database=self.db['DB'], max_inactive_connection_lifetime=900, loop=asyncio.get_event_loop())
-            except Exception as e: raise e
+            try: self._connection_pool = await asyncpg.create_pool(min_size=1, max_size=10, command_timeout=60, host=self.db['SERVER'], port=self.db['PORT'], user=self.db['USER'], password=self.db['PASSWORD'], database=self.db['DB'],)
+            except Exception as e: raise str(e)+" ---- HERE!!!!!"
 
-    async def fetch_rows(self, queries, multiple_queries_splitter=";", r_obj):
+    async def fetch_rows(self, queries, multiple_queries_splitter=";"):
         queries, results = queries if type(queries) == list else [queries], []
         if not self._connection_pool: await self.connect()
         else:
+            con = await self._connection_pool.acquire()
             for query in queries:
-                async with self._connection_pool.acquire() as connection:
-                    async with connection.transaction():
-                        try: results.append(await connection.fetch(query))
-                        except Exception as e: 
-                            if str(e)=="cannot insert multiple commands into a prepared statement":
-                                if query.find(multiple_queries_splitter) >= 0:
-                                    for sub_query in [x for x in query.split(multiple_queries_splitter) if len(x) > 0]:
-                                        try: results.append(await connection.fetch(sub_query))
-                                        except Exception as e:
-                                            await self._connection_pool.release(connection)
-                                            raise Exception(str(e)+"|>THE SUB_QUERY->|"+str(sub_query))
-                            else:
-                                await self._connection_pool.release(connection)
-                                raise Exception(str(e)+"|>THE QUERY->|"+str(query))
-                    #await self._connection_pool.release(connection)
-        return results
+                try: results.append(await con.fetch(query))
+                except Exception as e: 
+                    if str(e)=="cannot insert multiple commands into a prepared statement":
+                        if query.find(multiple_queries_splitter) >= 0:
+                            for sub_query in [x for x in query.split(multiple_queries_splitter) if len(x) > 0]:
+                                try: results.append(await con.fetch(sub_query))
+                                except Exception as e:
+                                    await self._connection_pool.release(con)
+                                    raise Exception(str(e)+"|>THE SUB_QUERY->|"+str(sub_query))
+                    else:
+                        await self._connection_pool.release(con)
+                        raise Exception(str(e)+"|>THE QUERY->|"+str(query))
+            await self._connection_pool.release(con)
+            return results
 
 async def check_type(the_type, subject):
-    types = {"int":{"convertor":int, "prefix":"", "endfix":""}, "float":{"convertor":float, "prefix":"", "endfix":""}, "text":{"convertor":str, "prefix":"'", "endfix":"'"}, "json":{"convertor":lambda x: json.dumps(x).replace("'", '"'), "prefix":"'", "endfix":"'::jsonb"}}
+    async def date_checker(date):
+        valid_date, valid_formats = False, ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d']
+        for f in valid_formats:
+            try: date, valid_date = dt.strptime(date, f), True
+            except: pass
+        if valid_date: return date
+        else: raise Exception("Invalid Date Format! Acceptable formats are:", ' or '.join(valid_formats))
+    types = {"int":{"convertor":int, "prefix":"", "endfix":""}, "float":{"convertor":float, "prefix":"", "endfix":""}, "text":{"convertor":str, "prefix":"'", "endfix":"'"}, "json":{"convertor":lambda x: json.dumps(x).replace("'", '"'), "prefix":"'", "endfix":"'::jsonb"}, "date":{"convertor":lambda x: date_checker(x), "prefix":"'", "endfix":"'::timestamptz"}}
     if the_type not in types.keys(): raise Exception("We don't Support this Type Yet.")
     else: f = types[the_type]["convertor"]
     try: return types[the_type]['prefix']+str(f(subject))+types[the_type]['endfix']
@@ -119,26 +127,26 @@ async def db_query(r_obj, query_name, External, query_payload=None):
             for var, cont in query_payload.items():
                 if var in allowed_types.keys():
                     fin_check = await check_type(allowed_types[var], cont)
-                    if fin_check is False: raise Exception("Illegal Payload Type -> "+str(var))
+                    if fin_check is False: raise Exception("Illegal Payload Type -> "+str(var)+"|"+str(cont))
                     queries[query_name]["Query"] = queries[query_name]["Query"].replace("{"+var+"}", fin_check)
-                else: raise Exception("Unknown Keyword in Payload.")
-        else: pass # Why the dev provided this query with a payload? Deprecated query maybe? -> todo handling: notification.
+                else: raise Exception("Unknown Keyword in Payload - "+str(var))
+        else: raise Exception("Query doesn't exist or the payload is not valid for this Query.") # Why the dev provided this query with a payload? Deprecated query maybe? -> todo handling: notification.
     if External: 
         allowed_external_queries = {k:v for k,v in queries.items() if 'meta' in v and 'External' in v['meta'] and v['meta']['External'] == 1}
-        return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(allowed_external_queries[query_name]["Query"], r_obj) for rec in results ] if query_name in allowed_external_queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found ~OR~ Not Allowed to be Exposed Externally!."}]
-    else: return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(queries[query_name]["Query"], r_obj) for rec in results ] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
+        return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(allowed_external_queries[query_name]["Query"]) for rec in results ] if query_name in allowed_external_queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found ~OR~ Not Allowed to be Exposed Externally!."}]
+    else: return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(queries[query_name]["Query"]) for rec in results ] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
 
 async def front_End_2DB(payload, request):
-    db_data = {"DB":{"Queries":[], "Results":[]}}
+    db_data = {"DB":{"Queries":[], "Results":[], "query_payload":None}}
     if 'query_names' in payload['form_data'] or 'init_query' in payload['query_params']:
-        db_data["DB"]["Queries"] = payload['form_data']['query_names'].split(',') if 'query_names' in payload['form_data'] else payload['query_params']['init_query'].split(',')
+        if 'query_names' in payload['form_data']:
+            db_data["DB"]["Queries"] = payload['form_data']['query_names'].split(',')
+            db_data["DB"]["query_payload"] = {k:v for k, v in payload['form_data'].items() if k != 'query_names' and not k.startswith('-')}
+        if 'init_query' in payload['query_params']:
+            if db_data["DB"]["Queries"] == []: db_data["DB"]["Queries"] = payload['query_params']['init_query'].replace("%20", " ").split(',')
+            else: db_data["DB"]["Queries"].append(payload['query_params']['init_query'].replace("%20", " ").split(','))
         db_data["DB"]["Queries"] = [x.strip() for x in db_data["DB"]["Queries"]]
-        retry_due_to_connection_pool_error = 3
-        while retry_due_to_connection_pool_error != 0:
-            try: 
-                db_data["DB"]["Results"] = [await db_query(r_obj=request.app.state.db, query_name=a_query, External=True) for a_query in db_data["DB"]["Queries"]]
-                retry_due_to_connection_pool_error = 0
-            except asyncpg.exceptions.ConnectionDoesNotExistError: retry_due_to_connection_pool_error -= 1
+        db_data["DB"]["Results"] = [await db_query(r_obj=request.app.state.db, query_name=a_query, External=True, query_payload=db_data["DB"]["query_payload"]) for a_query in db_data["DB"]["Queries"]]
     return db_data
 
 async def generate_basic_DB_tables(db_conn, do_you_want_users, endpoints, privileges=None, reload_all_DBQueries=False):

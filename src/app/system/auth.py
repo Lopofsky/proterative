@@ -20,28 +20,20 @@ else:
 from datetime import datetime as dt
 
 async def login(request: Request, payload, SESSION_SECRET, render_template, Server_Sessions=None, users=None):
+    #return HTMLResponse(content=""" """.format(previous_page=payload["page_requested"]), status_code=200, media_type='text/html')
     valid_login = False
-    if request.method == "GET" or payload is None:
-        return HTMLResponse(content="""<html>
-            <form action="/login" method="post">
-            Username: <input type="text" name="username" required>
-            <br>
-            Password: <input type="password" name="password" required></br>
-            <input type="hidden" name="previous_page" value="{previous_page}">
-            <input type="submit" value="Register">
-            </form></html>""".format(previous_page=payload["page_requested"]), status_code=200, media_type='text/html')
+    if request.method == "GET" or payload is None: return render_template('forbidden/system/auth/login.html', {"request": request, "payload": payload})
     forms_needed = ["username", "password"]
     if request.method == "POST" and type(payload) == dict and all(f in payload["form_data"].keys() for f in forms_needed):
         f = payload["form_data"]
         username, password = f["username"], f["password"]
         if username in users:
-            valid_login = True
             db_password = users[username]["password"]
-            try: check_hash, valid_login = bcrypt.hashpw(password, db_password), True
+            try: check_hash = bcrypt.hashpw(password, db_password)
             except(TypeError, ValueError):
                 password, db_password = password.encode('utf-8'), db_password.encode('utf-8')
-                try: check_hash, valid_login = bcrypt.hashpw(password, db_password), True
-                except(TypeError,ValueError): valid_login = False
+                check_hash = bcrypt.hashpw(password)
+            valid_login = check_hash == db_password
         if not valid_login: raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user or password")
         token = jwt.encode({"username": username, "data": str(dt.now())}, SESSION_SECRET)
         request.session.update({"session": token})
@@ -52,10 +44,12 @@ async def login(request: Request, payload, SESSION_SECRET, render_template, Serv
 async def logout(request: Request, Session_Decoded, Server_Sessions, render_template):
     Server_Sessions.pop(Session_Decoded['username'] if 'username' in Session_Decoded else None, None)
     request.session.clear()
-    return False
+    return render_template('forbidden/system/auth/logout.html', {"request": request})
 
 async def register(request, payload, Session_Decoded, SESSION_SECRET, Server_Sessions, users, render_template):
     if request.method == "GET" or payload is None:
+        return render_template('forbidden/system/auth/register.html', {"request": request, "payload": payload})
+        '''
         return HTMLResponse(content="""<html>
             <form action="/register" method="post">
             Username: <input type="text" name="username" required>
@@ -64,8 +58,9 @@ async def register(request, payload, Session_Decoded, SESSION_SECRET, Server_Ses
             Password Again: <input type="password" name="password2" required></br>
             Roles: <input type="text" name="roles" required></br>
             Metadata: <input type="text" name="metadata" required></br>
-            <input type="submit" value="Login">
+            <input type="submit" value="Register">
             </form></html>""".format(previous_page=payload["page_requested"]), status_code=200, media_type='text/html')
+        '''
     forms_needed = ["username", "password", "password2", "roles", "metadata"]
     if request.method == "POST" and type(payload) == dict and all(f in payload["form_data"].keys() for f in forms_needed):
         f = payload["form_data"]
