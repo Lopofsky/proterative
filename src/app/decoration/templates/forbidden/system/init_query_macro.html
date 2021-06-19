@@ -4,17 +4,18 @@
     {% elif queries is string %}
         {% set all_queries = queries %}
     {% endif %}
-
-    {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + all_queries  %}
+    {% if 'query_params' in payload and payload['query_params'] is not none %}
+        {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + all_queries + "&" + payload['query_params']|dict2q('query_params')  %}
+    {% else %}
+        {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + all_queries %}
+    {% endif %}
     {% if 'Queries' in payload['DB'] %}
         {% set actual_queries = payload['DB']['Queries']|join(',') %}
         {% if all_queries == actual_queries %}
         {% else %}
-            <h1>{{redirect_url}}</h1>
             <meta http-equiv="refresh" content="0; URL={{redirect_url}}" />
         {% endif %}
     {% else %}
-        <h1>{{redirect_url}}</h1>
         <meta http-equiv="refresh" content="0; URL={{redirect_url}}" />
     {% endif %}
 {%- endmacro %}

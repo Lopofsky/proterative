@@ -10,7 +10,7 @@
   <meta name="description" content="">
   <meta name="author" content="">
 
-  <title>Base Admin - Dashboard</title>
+  <title>Base Admin - Dashboard </title>
 
   <!-- Custom fonts for this template-->
   <link href="{{ url_for('static', path='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
@@ -47,6 +47,7 @@
           <i class="fas fa-fw fa-tachometer-alt"></i>
           <span>Dashboard</span></a>
       </li>
+      <a href="/file_download?uuid=%27959dec21-a781-5224-8b97-643c18e8f3ea%27&file=%27correct%20tax%20formula%20(1).xlsx%27" target="_blank">ddddd</a>
       <!-- Divider -->
       <hr class="sidebar-divider">
 
@@ -155,12 +156,26 @@
           </button>
 
           <!-- Topbar Search -->
-          <form class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search" action="/index" method="post" name="Database Query">
+          <form class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search" action="/index_2" method="post" name="Database Query">
             <div class="input-group">
+
+            <input class="form-control" name="*outlet.pente.credit card.amount">
+
               <input type="text" name="query_name" class="form-control bg-light border-0 small" placeholder="Search for..." aria-label="Search" aria-describedby="basic-addon2">
               <div class="input-group-append">
                 <button class="btn btn-primary" type="submit">
                   <i class="fas fa-search fa-sm">Get DB Query</i>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <form class="d-none d-sm-inline-block form-inline mr-auto ml-md-3 my-2 my-md-0 mw-100 navbar-search" action="/index_2" method="post" name="server_side_session">
+            <div class="input-group">
+              <input type="text" name="server_side_session" class="form-control bg-light border-0 small" placeholder="JSON PAYLOAD HERE" aria-label="Search" aria-describedby="basic-addon2">
+              <div class="input-group-append">
+                <button class="btn btn-primary" type="submit">
+                  <i class="fas fa-search fa-sm">Load SSS data</i>
                 </button>
               </div>
             </div>

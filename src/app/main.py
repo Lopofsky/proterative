@@ -1,64 +1,51 @@
+from starlette.applications import Starlette
 from starlette.routing import Route, Mount
 from starlette.requests import Request
-from starlette.responses import Response, HTMLResponse, RedirectResponse
-from starlette.applications import Starlette
+from starlette.responses import Response, HTMLResponse, RedirectResponse, FileResponse
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
-from starlette.exceptions import HTTPException
 from starlette_session import SessionMiddleware
+from starlette.exceptions import HTTPException
 
+from base64 import b64decode
 from pathlib import Path
-from datetime import datetime
 from collections import defaultdict
 from os.path import dirname, basename, isfile, join, realpath
 from os import chdir, getcwd, environ, name as os_name, listdir
 from asyncinit import asyncinit
 from jose import jwt
-import sys, json, glob, importlib, shutil, os, copy
+from inspect import getmembers, isfunction
+import urllib.parse as html_dec
+
+import sys, json, glob, importlib, shutil, copy
 
 if __package__ is None or __package__ == '':
     # uses current directory visibility
     from system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
-    from system.auth import *
     from system.html_input2json import make_dict_from_dotted_string
     from system.utilities import convert_your_html_files
+    from system.auth import register, login, logout
+    from system import jinja_filters
 else:
-    # uses current package visibility
+    # uses current package visibility 
     sys.path.append(".")
     from .system.db import db_query, front_End_2DB, Database, generate_basic_DB_tables, populate_privileges_DB_table
-    from .system.auth import *
     from .system.html_input2json import make_dict_from_dotted_string
     from .system.utilities import convert_your_html_files
+    from .system.auth import register, login, logout
+    from .system import jinja_filters
 
 fs, parent, DB, module_2_import = "\\" if os_name == 'nt' else '/', dirname(realpath(__file__)), Database(), "routers"
 templates_dir = parent+fs+"decoration"+fs+"templates"
 templates = Jinja2Templates(directory=templates_dir)
-def now_datetime(date_format):
-    date_format = "%Y-%m-%d %H:%M:%S" if date_format in (None, '') else date_format
-    return datetime.now().strftime(date_format)
-templates.env.filters['now'] = now_datetime
+templates.env.add_extension('jinja2.ext.do')
+templates.env.enable_async = True
+custom_jinja_filters = {f[0]:f[1] for f in getmembers(jinja_filters, isfunction)}
+for name, func in custom_jinja_filters.items():
+    templates.env.filters[name] = func
 SESSION_SECRET, UPLOADS_PATH = environ["SESSION_SECRET"], environ["UPLOADS_PATH"].replace('"', '').replace('"', '')
 do_you_want_users = True if "DO_YOU_WANT_USERS" in environ and environ["DO_YOU_WANT_USERS"] == "True" else False
 where_am_i = environ["WHERE_AM_I"] if "WHERE_AM_I" in environ and environ["WHERE_AM_I"] not in ('', None) else "PRODUCTION"
-
-async def save_up_files(init_form, keyword='FILEUPLOAD'):
-    init_form = init_form
-    form = copy.deepcopy(init_form)
-    for k, v in form.items():
-        if k.find(keyword) > -1:
-            custom_path = k[k.find(keyword)+len(keyword):].replace(".", "").replace("/", fs)
-            path = UPLOADS_PATH+fs+custom_path+fs
-            form_name = k[:k.find(keyword)]
-            if form_name[-1] == '.': form_name = form_name[:-1]
-            Path(path).mkdir(parents=True, exist_ok=True)
-            v.file.seek(0)
-            init_form.pop(k, None)
-            if v.filename != '':
-                with open(path+v.filename, "wb") as buffer:
-                    shutil.copyfileobj(v.file, buffer)
-                init_form[form_name] = {v.filename:{'path':path, 'content_type':v.content_type}}
-            else: init_form[form_name] = None
-    return init_form
 
 async def root(request: Request):
     path_exceptions, err_page = ["forbidden"], "forbidden/403"
@@ -66,19 +53,20 @@ async def root(request: Request):
     path_params = request["path_params"]
     URL = path_params["URL"] if "URL" in path_params else 'index'
     full_path = URL if 'rest_of_path' not in path_params else URL + "/" + path_params["rest_of_path"]
-    #await load_users_privileges_sessions_DBQueries(reload_g="users") #sessions
+    #await load_users_privileges_sessions_DBQueries(reload_g="DBQueries") #sessions
+    #await load_users_privileges_sessions_DBQueries(reload_g="privileges")
+    form = await request.form()
+    payload["form_data"] = {k:v for k, v in form.multi_items()}
     payload["page_requested"] = URL
     payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x is not None and x!=''] if "rest_of_path" in path_params else None
     qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
+    if len(qp2d) >= 1 and qp2d[-1] == '&': qp2d = qp2d[:-1]
     payload["query_params"] = {z.split('=')[0]:z.split('=')[1] for z in qp2d.split("&")} if qp2d.find('=') > -1 and len(qp2d) >= 3 else {}
     user_has_access = await Auth(request=request, payload=payload, URL=URL) if URL not in path_exceptions else False
     if type(user_has_access) in (HTMLResponse, RedirectResponse) or str(type(user_has_access)) == "<class 'starlette.templating._TemplateResponse'>": return user_has_access
     if user_has_access == True:
-        form = await request.form()
-        payload["form_data"] = {k:v for k, v in form.multi_items()}
-        payload["form_data"] = await save_up_files(payload["form_data"])
-        payload["form_data"]  = await make_dict_from_dotted_string(payload["form_data"], input_name_str_exception="Uploads")
-        payload.update(await front_End_2DB(payload, request))
+        payload["form_data"] = await make_dict_from_dotted_string(await save_up_files(payload["form_data"]), input_name_str_exception="Uploads")
+        init_query = privileges[URL.replace('.html', '')]['init_query'] if URL.replace('.html', '') in privileges else None
         server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
         if "session" in request.session: 
             active_user = server_sessions_tokens[request.session["session"]]
@@ -87,18 +75,30 @@ async def root(request: Request):
                 except: raise Exception("server_side_session payload is not in a valid json format!")
                 server_sessions[active_user]["data"].update(extra_session_data)
             payload.update({"session":{"username":active_user, "meta":server_sessions[active_user]["data"]}})
-        else: payload.update({"session":{}})
+        else: payload.update({"session":{}}) 
+        validators = privileges[URL]['validators']
+        Endpoing_Validation = 0
+        if validators is not None:
+            payload = payload
+            for x in validators:
+                try: t = eval(x, locals())
+                except: t = 0
+                Endpoing_Validation += int(eval(x))
+            if Endpoing_Validation!=len(validators): Endpoing_Validation = 0
+        else: Endpoing_Validation = 1
+        if Endpoing_Validation == 0: raise Exception("Endpoing Validation Failed!")
+        payload.update(await front_End_2DB(payload, request, init_query=init_query))
         URL = URL + ".html" if URL.find(".html") == -1 else URL
         renderer = URL[0:URL.find(".html")] + "_main"
         if renderer in options:
             select_func = (renderer, {"request":request, "payload":payload, "render_template":templates.TemplateResponse})
             return await options[select_func[0].replace("'", "")](select_func[1].values)
         elif URL in html_templates: return templates.TemplateResponse(URL, {"request": request, "payload": payload})
+        elif URL == 'file_download.html': return await save_up_files(init_form=payload["query_params"], download=True)
         else: err_page = "404"
     return templates.TemplateResponse(err_page+".html", {"request": request})
 
 async def utility_initializers():
-    print(environ)
     await convert_your_html_files(where_am_i)        
 
 async def DB_startup():
@@ -120,11 +120,12 @@ async def load_all(module_2_import=module_2_import):
     globals().update(globals_dict)
 
 async def Auth(request, payload, URL=None):
-    Session_Decoded = jwt.decode(request.session["session"], SESSION_SECRET) if "session" in request.session else {}
+    jwt_options = {'verify_signature': True, 'verify_exp': True, 'verify_nbf': False, 'verify_iat': True, 'verify_aud': False}
+    Session_Decoded = jwt.decode(request.session["session"], SESSION_SECRET, options=jwt_options, algorithms="HS256") if "session" in request.session else {}
     user, mandatory_login, mandatory_logout = Session_Decoded['username'] if 'username' in Session_Decoded else None, False, False
-    if do_you_want_users==True and user is not None and user in users.keys() and URL in privileges and len(privileges[URL]) > 0: user_has_access = any(g in users[user]['roles'] for g in privileges[URL])
-    elif URL in privileges and len(privileges[URL]) > 0 and user is None: mandatory_login, user_has_access = True, False
-    elif URL not in privileges or len(privileges[URL]) == 0: user_has_access = True
+    if do_you_want_users==True and user is not None and user in users.keys() and URL in privileges and len(privileges[URL]['roles']) > 0: user_has_access = any(g in users[user]['roles'] for g in privileges[URL]['roles'])
+    elif URL in privileges and len(privileges[URL]['roles']) > 0 and user is None: mandatory_login, user_has_access = True, False
+    elif URL not in privileges or len(privileges[URL]['roles']) == 0: user_has_access = True
     else: user_has_access = False
     server_sessions_tokens = {data['token']:username for username, data in server_sessions.items()}
     if not ("session" in request.session and request.session["session"] in server_sessions_tokens) and user is not None: mandatory_logout = True
@@ -133,7 +134,7 @@ async def Auth(request, payload, URL=None):
         elif user is not None: user_has_access = False
         else: mandatory_login = True
     if URL == 'login' or mandatory_login: return await login(request=request, payload=payload, users=users, SESSION_SECRET=SESSION_SECRET, Server_Sessions=server_sessions, render_template=templates.TemplateResponse)
-    if URL == 'logout' or mandatory_logout: return await logout(request=request, Session_Decoded=Session_Decoded, Server_Sessions=server_sessions, render_template=templates.TemplateResponse)
+    if URL == 'logout' or mandatory_logout: return await logout(request=request, Session_Decoded=Session_Decoded, Server_Sessions=server_sessions, render_template=templates.TemplateResponse, payload=payload)
     return user_has_access
 
 # I love that kind of mindset!!! Thank you!!!: https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python
@@ -150,7 +151,7 @@ class Privileges:
     async def __init__(self):
         try:
             res = await db_query(r_obj=app.state.db, query_name="load_privileges", External=False)
-            self.available = {r['endpoint']:{"ID":r["ID"], "meta":json.loads(r["meta"]), "roles":json.loads(r["roles"])} for r in res} 
+            self.available = {r['endpoint']:{"ID":r["ID"], "meta":json.loads(r["meta"]), "roles":json.loads(r["roles"])} for r in res}
         except: self.available = {}
 
 @asyncinit
@@ -196,12 +197,44 @@ async def load_users_privileges_sessions_DBQueries(reload_g=False):
             if reload_g == 'users' or 'users' not in G: 
                 globals().update({"users":dict({k:v for k,v in (await Users()).available.items()})})
             if reload_g == 'privileges' or 'privileges' not in G:
-                globals().update({"privileges":dict({k:v['roles'] for k,v in (await Privileges()).available.items()})})
+                globals().update({"privileges":dict(\
+                    {k:{x:v.get(x, v['meta'].get(x, None))\
+                        for x in ('init_query', 'validators', 'roles')} \
+                            for k,v in (await Privileges()).available.items()})})
             if reload_g == 'server_sessions' or 'server_sessions' not in G:
                 globals().update({"server_sessions":{username:metadata for username, metadata in (await Server_Sessions()).available.items()}})
             if reload_g == 'DBQueries': await basic_DB_tables(reload_all_DBQueries=True)
     elif (reload_g is not False and reload_g not in das_globals): raise Exception("Unknown Global Variable Requested to be Reloaded ->", reload_g)
     else: pass
+
+async def save_up_files(init_form, keyword='FILEUPLOAD', download=False):
+    init_form = init_form
+    if download == False:
+        form = {k:v for k,v in init_form.items()}
+        for k, v in form.items():
+            if k.find(keyword) > -1:
+                custom_path = k[k.find(keyword)+len(keyword):].replace(".", "").replace("/", fs)
+                path = UPLOADS_PATH+fs+custom_path+fs
+                form_name = k[:k.find(keyword)]
+                if form_name[-1] == '.': form_name = form_name[:-1]
+                Path(path).mkdir(parents=True, exist_ok=True)
+                v.file.seek(0)
+                init_form.pop(k, None)
+                if v.filename != '':
+                    with open(path+v.filename, "wb") as buffer:
+                        shutil.copyfileobj(v.file, buffer)
+                    init_form[form_name] = {v.filename:{'path':path, 'content_type':v.content_type}}
+                else: init_form[form_name] = None
+        return init_form
+    else:
+        n = {}
+        for k, v in init_form.items():
+            t = html_dec.unquote(v) #unquote_plus
+            if t.startswith(("'", '"')): t = t[1:]
+            if t.endswith(("'", '"')): t = t[:-1]
+            n[k] = t
+        fileresponse = FileResponse(UPLOADS_PATH+fs+n['uuid']+fs+n['file'], media_type='application/octet-stream', filename=n['file'])
+        return fileresponse
 
 routes = [
     Mount("/static/", StaticFiles(directory=parent+fs+"decoration"+fs+"static"), name="static"),

@@ -113,10 +113,19 @@ async def check_type(the_type, subject):
             except: pass
         if valid_date: return date
         else: raise Exception("Invalid Date Format! Acceptable formats are:", ' or '.join(valid_formats))
+    async def dequote(s):
+        res = ''
+        if (s[0] == s[-1]) and s.startswith(("'", '"')): return s[1:-1]
+        return s
     types = {"int":{"convertor":int, "prefix":"", "endfix":""}, "float":{"convertor":float, "prefix":"", "endfix":""}, "text":{"convertor":str, "prefix":"'", "endfix":"'"}, "json":{"convertor":lambda x: json.dumps(x).replace("'", '"'), "prefix":"'", "endfix":"'::jsonb"}, "date":{"convertor":lambda x: date_checker(x), "prefix":"'", "endfix":"'::timestamptz"}}
     if the_type not in types.keys(): raise Exception("We don't Support this Type Yet.")
     else: f = types[the_type]["convertor"]
-    try: return types[the_type]['prefix']+str(f(subject))+types[the_type]['endfix']
+    try:
+        if the_type == 'json': 
+            res = await dequote(str(f(subject)))
+            if res in ('None', None): res = "{}"
+            return types[the_type]['prefix']+res+types[the_type]['endfix']
+        return types[the_type]['prefix']+str(f(subject))+types[the_type]['endfix']
     except: return False
 
 async def db_query(r_obj, query_name, External, query_payload=None):
@@ -124,29 +133,40 @@ async def db_query(r_obj, query_name, External, query_payload=None):
     if query_payload is not None:
         if query_name in queries and 'meta' in queries[query_name] and 'Payload' in queries[query_name]['meta']:
             allowed_types = queries[query_name]['meta']['Payload']
+            querys_payload_keywords_counter = len(allowed_types.keys())
             for var, cont in query_payload.items():
                 if var in allowed_types.keys():
                     fin_check = await check_type(allowed_types[var], cont)
                     if fin_check is False: raise Exception("Illegal Payload Type -> "+str(var)+"|"+str(cont))
                     queries[query_name]["Query"] = queries[query_name]["Query"].replace("{"+var+"}", fin_check)
-                else: raise Exception("Unknown Keyword in Payload - "+str(var))
-        else: raise Exception("Query doesn't exist or the payload is not valid for this Query.") # Why the dev provided this query with a payload? Deprecated query maybe? -> todo handling: notification.
+                    querys_payload_keywords_counter -= 1
+            if querys_payload_keywords_counter != 0: #raise Exception("Query's >"+query_name+"< Payload was not completed!", )
+                raise Exception("Query's >"+query_name+"< Payload was not complete! ->", querys_payload_keywords_counter, "| query_payload =", query_payload, "| allowed_types =", allowed_types)
     if External: 
         allowed_external_queries = {k:v for k,v in queries.items() if 'meta' in v and 'External' in v['meta'] and v['meta']['External'] == 1}
         return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(allowed_external_queries[query_name]["Query"]) for rec in results ] if query_name in allowed_external_queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found ~OR~ Not Allowed to be Exposed Externally!."}]
     else: return [{k:v for k,v in rec.items()} for results in await r_obj.fetch_rows(queries[query_name]["Query"]) for rec in results ] if query_name in queries else [{"Requested Query":str(query_name), "Result": "Error! Query Name Not Found."}]
 
-async def front_End_2DB(payload, request):
+async def front_End_2DB(payload, request, init_query=None):
     db_data = {"DB":{"Queries":[], "Results":[], "query_payload":None}}
-    if 'query_names' in payload['form_data'] or 'init_query' in payload['query_params']:
-        if 'query_names' in payload['form_data']:
-            db_data["DB"]["Queries"] = payload['form_data']['query_names'].split(',')
-            db_data["DB"]["query_payload"] = {k:v for k, v in payload['form_data'].items() if k != 'query_names' and not k.startswith('-')}
-        if 'init_query' in payload['query_params']:
-            if db_data["DB"]["Queries"] == []: db_data["DB"]["Queries"] = payload['query_params']['init_query'].replace("%20", " ").split(',')
-            else: db_data["DB"]["Queries"].append(payload['query_params']['init_query'].replace("%20", " ").split(','))
+    combos = [('query_names', 'form_data'), ('init_query', 'query_params')]
+    process_POST_GET = sum([combo[0] in payload[combo[1]] for combo in combos]) > 0
+    if process_POST_GET or init_query is not None:
+        if init_query is not None: 
+            db_data["DB"]["Queries"] += init_query
+            for combo in combos:
+                temp_query_payload = {k:v for k, v in payload[combo[1]].items() if k != combo[0] and not k.startswith('-')}
+                if db_data["DB"]["query_payload"] is None: db_data["DB"]["query_payload"] = temp_query_payload
+                else: db_data["DB"]["query_payload"].update(temp_query_payload)
+        for combo in combos:
+            if combo[0] in payload[combo[1]]: 
+                db_data["DB"]["Queries"] += payload[combo[1]][combo[0]].replace("%20", " ").replace("%22", "").replace("%27", " ").split(',')
+                temp_query_payload = {k:v for k, v in payload[combo[1]].items() if k != combo[0] and not k.startswith('-')}
+                if db_data["DB"]["query_payload"] is None: db_data["DB"]["query_payload"] = temp_query_payload
+                else: db_data["DB"]["query_payload"].update(temp_query_payload)
         db_data["DB"]["Queries"] = [x.strip() for x in db_data["DB"]["Queries"]]
-        db_data["DB"]["Results"] = [await db_query(r_obj=request.app.state.db, query_name=a_query, External=True, query_payload=db_data["DB"]["query_payload"]) for a_query in db_data["DB"]["Queries"]]
+        db_data["DB"]["Queries"].reverse()
+        db_data["DB"]["Results"] = {a_query:await db_query(r_obj=request.app.state.db, query_name=a_query, External=True, query_payload=db_data["DB"]["query_payload"]) for a_query in db_data["DB"]["Queries"]}
     return db_data
 
 async def generate_basic_DB_tables(db_conn, do_you_want_users, endpoints, privileges=None, reload_all_DBQueries=False):
@@ -173,6 +193,7 @@ async def populate_privileges_DB_table(db_conn, endpoints, privileges):
             query_payload = {"endpoint":endpoint, "roles":{}, "meta":{"renderer_type":renderer_type}}
             await db_query(r_obj=db_conn, query_name="populate_privileges", External=False, query_payload=query_payload)
         elif privileges.available[endpoint]['meta']['renderer_type'] != renderer_type:
-            query_payload = {"ID":privileges.available[endpoint]["ID"], "meta":{"renderer_type":renderer_type}}
+            privileges.available[endpoint]['meta']['renderer_type'] = renderer_type
+            query_payload = {"ID":privileges.available[endpoint]["ID"], "meta":privileges.available[endpoint]['meta']}
             await db_query(r_obj=db_conn, query_name="update_privileges", External=False, query_payload=query_payload)
         else: pass

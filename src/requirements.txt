@@ -1,4 +1,7 @@
-bcrypt
+python_bcrypt
+Crypto
+#py-bcrypt
+#bcrypt
 starlette
 starlette-session
 requests

@@ -10,7 +10,7 @@ async def merge(a, b, path=None):
             else: 
                 if type(a[key]) == str: a[key] = [a[key], b[key]]
                 elif type(a[key]) == list: a[key].append(b[key])
-                else: raise Exception("key >"+key+"< with value >"+str(value)+"< is of type "+type(a[key])+" - Not Supported!")
+                else: raise Exception("key >"+key+"< with value >"+str(a[key])+"< is of type "+type(a[key])+" - Not Supported!")
         else: a[key] = b[key]
     return a
 
@@ -18,7 +18,7 @@ async def create_list_of_dicts_from_html_form(da_form, prefix, input_name_str_ex
     records = []
     for k, v in da_form.items():
         v = {v.filename:{"filetype":v.content_type, "tempfile":v.file}} if type(v)==UploadFile else v
-        is_exception = False if input_name_str_exception is None else k.find(input_name_str_exception) > -1
+        is_exception = False if input_name_str_exception is None else k.find(str(input_name_str_exception)) > -1
         if k.startswith(prefix) and not is_exception:
             t_res = k.split('.')[1:]
             main_k = k[1:].split('.')[0]
@@ -27,8 +27,7 @@ async def create_list_of_dicts_from_html_form(da_form, prefix, input_name_str_ex
                 key = dict_key[1]
                 try: value = json.loads(v.replace("'", '"'))
                 except: value = v
-                if dict_key[0] == 0: res = {key:value}
-                else: res = {key:res}
+                res = {key:value} if dict_key[0] == 0 else {key:res}
             records.append({main_k:res})
         else: records.append({k.replace(prefix, ""):v})
     return records
