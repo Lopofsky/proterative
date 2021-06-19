@@ -1,0 +1,115 @@
+<!-- Sidebar -->
+    <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+
+      <!-- Sidebar - Brand -->
+      <a class="sidebar-brand d-flex align-items-center justify-content-center" href="/index">
+        <div class="sidebar-brand-icon">
+          <img src="https://rms.nepheli.org/static/img/logo-nefeli-white.png" alt="Nefeli-Logo" width="85">
+        </div>
+        <div class="sidebar-brand-text mx-3">H.R <sup>beta</sup></div>
+      </a>
+
+      <!-- Divider -->
+      <hr class="sidebar-divider my-0">
+
+      <!-- Nav Item - Dashboard -->
+      <li class="nav-item {%- if payload['page_requested'] == 'index' %} active{% endif %}">
+        <a class="nav-link" href="/index">
+          <!-- DASHBOARD icon:
+            fas fa-fw fa-tachometer-alt 
+          -->
+          <i class="far fa-handshake"></i>
+          <span>All CV's</span></a>
+      </li>
+
+      <!-- Divider -->
+      <hr class="sidebar-divider">
+
+      <!-- Heading -->
+      <div class="sidebar-heading">
+        Interface
+      </div>
+
+      <!-- Nav Item - Pages Collapse Menu -->
+      <li class="nav-item {%- if payload['page_requested'] == 'department' %} active{% endif %}">
+        <a class="nav-link collapsed" href="/department" >
+          <i class="fas fa-grip-vertical"></i>
+          <span>Deparment</span>
+        </a>
+      </li>
+
+      <!-- Nav Item - Utilities Collapse Menu -->
+      <li class="nav-item {%- if payload['page_requested'] == 'positions' %} active{% endif %}">
+        <a class="nav-link collapsed" href="/positions" >
+          <i class="fas fa-users"></i>
+          <span>Positions</span>
+        </a>
+      </li>
+      <li class="nav-item {%- if payload['page_requested'] == 'hotels' %} active{% endif %}">
+        <a class="nav-link collapsed" href="/hotels" >
+          <i class="fas fa-map-marker-alt"></i>
+          <span>Hotels</span>
+        </a>
+      </li>
+      <li class="nav-item {%- if payload['page_requested'] == 'employees' %} active{% endif %}">
+        <a class="nav-link collapsed" href="/employees" >
+          <i class="fas fa-user-tie"></i>
+          <span>Hired Employees</span>
+        </a>
+      </li>
+      <li class="nav-item {%- if payload['page_requested'] == 'work_schedules' %} active{% endif %}">
+        <a class="nav-link collapsed" href="/schedules" >
+          <i class="far fa-clock"></i>
+          <span>Work Schedules</span>
+        </a>
+      </li>
+
+      <!-- Divider -->
+      <hr class="sidebar-divider">
+
+      <!-- Heading -->
+      <div class="sidebar-heading">
+        Reports
+      </div>
+      <!-- Nav Item - Charts -->
+      <li class="nav-item {%- if payload['page_requested'] == 'charts' %} active{% endif %}">
+        <a class="nav-link" href="/charts">
+          <i class="fas fa-fw fa-chart-area"></i>
+          <span>Charts</span></a>
+      </li>
+
+      <!-- Nav Item - Pages Collapse Menu -->
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="/#" data-toggle="collapse" data-target="#collapsePages" aria-expanded="true" aria-controls="collapsePages">
+          <i class="fas fa-fw fa-folder"></i>
+          <span>Not use <br> (Pages for Devs only)</span>
+        </a>
+        <div id="collapsePages" class="collapse" aria-labelledby="headingPages" data-parent="#accordionSidebar">
+          <div class="bg-white py-2 collapse-inner rounded">
+            <h6 class="collapse-header">Login Screens:</h6>
+            <a class="collapse-item" href="/login">Login</a>
+            <a class="collapse-item" href="/register">Register</a>
+            <a class="collapse-item" href="/forgot-password">Forgot Password</a>
+            <div class="collapse-divider"></div>
+            <h6 class="collapse-header">Other Pages:</h6>
+            <a class="collapse-item" href="/404">404 Page</a>
+            <a class="collapse-item" href="/blank">Blank Page</a>
+            <a class="collapse-item" href="/index_2">index_2</a>
+            <a class="collapse-item" href="/tables">Tables</a>
+            <a class="collapse-item" href="/base">Base</a>
+            <a class="collapse-item" href="/buttons">Buttons</a>
+            <a class="collapse-item" href="/cards">Cards</a>
+            <a class="collapse-item" href="/department">department</a>
+            </div>
+        </div>
+      </li>
+      <!-- Divider -->
+      <hr class="sidebar-divider d-none d-md-block">
+
+      <!-- Sidebar Toggler (Sidebar) -->
+      <div class="text-center d-none d-md-inline">
+        <button class="rounded-circle border-0" id="sidebarToggle"></button>
+      </div>
+
+    </ul>
+    <!-- End of Sidebar -->

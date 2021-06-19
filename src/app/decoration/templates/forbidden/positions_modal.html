@@ -1,0 +1,67 @@
+  <!-- department Modal-->
+  <div class="modal fade" id="positionsModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLabel">Create Position</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form action="/positions" method="post">
+            <input type="hidden" name="query_names" value="Insert New Position">
+            <div class="row">
+              <div class="col">
+                <div class="form-group">
+                  <label for="category" class="control-label col-sm-3">Title</label>
+                  <div class="input-group col-xs-8">
+                    <select class="form-control" name="Title" id="positions_list">
+                      {% for pos in payload['DB']['Results']['Get Unique Positions'] %}
+                        <option value="{{pos['Title']}}">{{pos['Title']}}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+                <div id="add-option" class="btn btn-primary">Add New Position</div>
+              </div>
+              <div class="col">
+                <label for="category" class="control-label col-sm-3">Department</label>
+                  <select class="form-control" style="width: 100%;" name="dpt_ID">
+                    {% for dpt in payload['DB']['Results']['Get All Departments'] %}
+                      <option value="{{dpt['ID']}}">{{dpt['Name']}} - {{dpt['Hotel']}}</option>
+                    {% endfor %}
+                  </select>
+              </div>
+              <input name="metadata" value="{}" type="hidden"></input>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+              <button class="btn btn-primary" type="submit"><i class="fas fa-check"></i> Save</button>
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+<script>
+    var addOption = document.getElementById("add-option");
+    var selectField = document.getElementById("positions_list");
+    addOption.addEventListener("click", function() {
+        var item = prompt("New Position Title");
+        var option = document.createElement("option");
+        option.setAttribute("value", item);
+        var optionName = document.createTextNode(item);
+        option.appendChild(optionName);
+        selectField.appendChild(option);
+        var sel = document.getElementById('positions_list');
+        var opts = sel.options;
+        for (var opt, j = 0; opt = opts[j]; j++) {
+          if (opt.value == item) {
+            sel.selectedIndex = j;
+            break;
+          }
+        }
+    });
+  </script>

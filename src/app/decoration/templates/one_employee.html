@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>Nepheli Departments</title>
+  {% include 'forbidden/default_styles.html' %} 
+
+  <!-- Select2 styles  -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <style type="text/css">
+    .select2-container--default .select2-selection--multiple{
+        display: block;
+        width: 100%;
+        height: calc(1.5em + .75rem + 2px);
+        padding: .375rem .75rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #6e707e;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 1px solid #d1d3e2;
+        border-radius: .35rem;
+        transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+    }
+    .select2-selection__choice{
+        margin-left: 2px !important;
+        margin-top: 0px !important;
+    }    
+
+#uploadFile {
+  border: none;
+  background-color: white;
+  color: black;
+}
+input[type="file"] {
+    display: none;
+}
+
+  </style>
+  <!-- end Select2 styles  -->
+
+</head>
+
+<body id="page-top">
+
+  <!-- Page Wrapper -->
+  <div id="wrapper">
+
+    <!-- Sidebar -->
+    {% include 'forbidden/sidebar.html' %}
+    <!-- End of Sidebar -->
+
+
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+
+      <!-- Main Content -->
+      <div id="content">
+
+      <!-- Topbar -->
+      {% include 'forbidden/topbar.html' %}
+      <!-- End of Topbar -->
+     
+      {# {% if 'employee_ID' in payload['query_params'] %} #}
+      {#    {% from 'forbidden/system/init_query_macro.html' import init_query with context %} #}
+      {#    {{ init_query(['One Employee']) }} <!-- YOU CAN AVOID LIST FOR A SINGLE QUERY: init_query('test') --> #}
+      {# {% endif %} #}
+      {# ..... and 'init_query' in payload['query_params'] #}
+      {% if 'employee_ID' in payload['query_params'] %}
+        <div class="container-fluid">
+              <div class="main-body">
+                {% set Employee = payload['DB']['Results']["One Employee"][0] %}
+                {% set e_meta = Employee['metadata'] | to_json %}
+                {% set employment_data = Employee['Employment_Data'] | to_json %}
+                <div class="row gutters-sm">
+                  <div class="col-md-4 mb-3">
+                    <div class="card">
+                      <div class="card-body">
+                        <div class="d-flex flex-column align-items-center text-center">
+                          <img src="https://bootdey.com/img/Content/avatar/avatar7.png" alt="Admin" class="rounded-circle" width="150">
+                          <div class="mt-3">
+                            <h4>
+                              {{ Employee['First Name'] }} {{ Employee['Last Name'] }} 
+                            </h4>
+                            <h6><i><small>{{ e_meta['Civil']['Gender'] }} </small> </i></h6>
+                            <p class="text-secondary mb-1">{{e_meta['Request']['Profession']}}</p>
+                            <p class="text-muted font-size-sm">{{e_meta['Request']['Position']}} - {{e_meta['Request']['Hotel']}}</p>
+	                          <a href="/#" class="btn btn-success btn-icon-split" data-toggle="modal" data-target="#one_employee_edit">
+				                    <span class="icon text-white-50">
+				                      <i class="fas fa-edit"></i>
+				                    </span>
+				                    <span class="text">Edit Data</span>
+				              </a>
+				              
+				              	{% set uuid_var = payload['DB']['Results']['One Employee'][0]['unique_id'] %}
+			                    <form action="/one_employee?employee_ID={{payload['query_params']['employee_ID']}}&init_query='Update File Uploads'" method="post" enctype="multipart/form-data">
+		                            <div class="form-group col">
+		                            	<br>
+		                            	<label for="file-upload" class="custom-file-upload btn btn-warning btn-icon-split">
+						                    <span class="icon text-white-50">
+						                      <i class="fas fa-upload"></i>
+						                    </span>
+						                    <span class="text">Upload File</span>
+										</label>
+		                        		<input type="file" id="file-upload" name="*Uploads.FILEUPLOAD.{{ uuid_var }}">
+		                      			<input type="hidden" name="unique_id" value="{{ uuid_var }}">		
+		                      			<input id="uploadFile" placeholder="No File" disabled="disabled" />		
+		                      			<button class="btn btn-primary" type="submit"><i class="fas fa-check"></i> Submit</button>
+		                      		</div>
+							    </form>							   
+                  			</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card mt-3">
+                    <ul class="list-group list-group-flush">
+                    	{% set Filetypes={"xlsx":{"icon":"far fa-file-excel", "bcolor":"btn-success", "text":"Excel"}, "pdf":{"icon":"far fa-file-pdf", "bcolor":"btn-danger", "text":"PDF"}, "png":{"icon":"fas fa-file-image",  "bcolor":"btn-info", "text":"PNG"}, "jpg":{"icon":"fas fa-file-image",  "bcolor":"btn-info", "text":"JPG"}, "jpeg":{"icon":"fas fa-file-image",  "bcolor":"btn-info", "text":"JPEG"}, "img":{"icon":"fas fa-file-image",  "bcolor":"btn-info", "text":"img"}} %}
+                    	<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap"><h4 class="d-flex align-items-center mb-3"><i class="material-icons text-info mr-2">Uploads</i></h4></li>
+                    	{% set UPLOADS = Employee["Uploads"]|dict2q('2dict') %}
+                        {% if UPLOADS is iterable and (UPLOADS is not string) %}
+                          	{% for item in UPLOADS %}
+                        		{% set File = Filetypes[item.split('.')[-1]] %}
+                    			<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
+                          			<h6 class="mb-0"><a href="/#" class="btn {{File['bcolor']}} btn-circle"><i class="{{File['icon']}}"></i>
+					                  </a>
+                          			{{File["text"]}}</h6>
+                          			<span class="text-secondary"><a href="/file_download?uuid='{{Employee['unique_id']}}'&file='{{item}}'" target="_blank"> {{ item }}</a></span>
+                        		</li>
+                          	{% endfor %}
+                        {% endif %}
+                        
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="col-md-8">                  	 
+                  	<div class="row gutters-sm">                  		
+                      <div class="col-sm-6 mb-3">
+                        <div class="card h-100">
+                          <div class="card-body">
+                            <h4 class="d-flex align-items-center mb-3"><i class="material-icons text-info mr-2">Basic & Civil Data</i></h4>
+                            <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Birthday:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Civil']['Birthday'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Address:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Contact']['Address'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Email:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Contact']['Email'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Land Line:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Contact']['Land Line'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Mobile:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Contact']['Mobile'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Father Name:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Civil']['Father Name'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Father SurName:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Civil']['Father SurName'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Mother Name:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Civil']['Mother Name'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Mother SurName:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Civil']['Mother SurName'] }}
+	                          </div>
+	                        </div> 
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-sm-6 mb-3">
+                        <div class="card h-100">
+                          <div class="card-body">
+                          	<h4 class="d-flex align-items-center mb-3"><i class="material-icons text-info mr-2">Legal Data</i></h4>
+                             <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Οικογενειακά:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['Οικογενειακά'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Παιδιά:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['Παιδιά'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">ΑΦΜ:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['ΑΦΜ'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">ΑΜΚΑ:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['ΑΜΚΑ'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Κάρτα Ανεργίας:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['Κάρτα Ανεργίας'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Βιβλιάριο Υγείας:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['Βιβλιάριο Υγείας'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Νέος Υπάλληλος:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['Νέος Υπάλληλος'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Bank:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['BANK'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">BIC/SWIFT:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['BIC/SWIFT'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Iban:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ e_meta['Legal']['IBAN'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+	                        <div class="row">
+	                          <div class="col-sm-3">
+	                            <h6 class="mb-0">Αριθμός πρωτοκόλλου@Εργάνη:</h6>
+	                          </div>
+	                          <div class="col-sm-9 text-secondary">
+	                            {{ employment_data['Εργάνη'] }}
+	                          </div>
+	                        </div>
+	                        <hr>
+		                    <div class="row">
+		                      <div class="col-sm-3">
+		                        <h6 class="mb-0">Ημερ. Πρόσληψης:</h6>
+		                      </div>
+		                      <div class="col-sm-9 text-secondary">
+		                        {{ employment_data['Hired_date'] }}
+		                      </div>
+		                    </div>
+		                    <hr>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card shadow mb-3">
+						<div class="card-header py-3">
+						  <h6 class="m-0 font-weight-bold text-primary">Notes</h6>
+						</div>
+						<div class="card-body">
+							{% set Notes = Employee["Notes"]|dict2q('2dict') %}
+							{% if Notes is iterable and (Notes is not string) %}
+								{% for date, data in Notes.items() %}
+							  		<p>{{date}} - {{data['comment']}} - {{data["User"]}}<hr></p>
+								{% endfor %}
+							{% endif %}
+						</div>
+					</div>
+                  </div>
+                </div>
+              </div>
+          </div>          
+        <!-- /.container-fluid -->
+      {% else %}
+        <h1>Employee is Missing! </h1>
+      {% endif %}
+      </div>
+      <!-- End of Main Content -->
+
+      <!-- Footer -->
+      <footer class="sticky-footer bg-white">
+        <div class="container my-auto">
+          <div class="copyright text-center my-auto">
+            <span>Copyright &copy; Your Website 2021</span>
+          </div>
+        </div>
+      </footer>
+      <!-- End of Footer -->
+
+    </div>
+    <!-- End of Content Wrapper -->
+
+  </div>
+  <!-- End of Page Wrapper -->
+
+  <!-- Scroll to Top Button-->
+  <a class="scroll-to-top rounded" href="/#page-top">
+    <i class="fas fa-angle-up"></i>
+  </a>
+
+  <!-- inside top bar-->
+  
+  <!-- Edit One Employee Modal-->
+  {% include 'forbidden/one_employee_edit.html' %}
+
+
+  <!-- Bootstrap core JavaScript-->
+  <script src="{{url_for('static', path='vendor/jquery/jquery.min.js') }}"></script>
+  <script src="{{url_for('static', path='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+
+  <!-- Core plugin JavaScript-->
+  <script src="{{url_for('static', path='vendor/jquery-easing/jquery.easing.min.js') }}"></script>
+
+  <!-- Custom scripts for all pages-->
+  <script src="{{url_for('static', path='js/sb-admin-2.min.js') }}"></script>
+
+  <!-- Page level plugins -->
+  <script src="{{url_for('static', path='vendor/datatables/jquery.dataTables.min.js') }}"></script>
+  <script src="{{url_for('static', path='vendor/datatables/dataTables.bootstrap4.min.js') }}"></script>
+
+  <!-- Page level custom scripts -->
+  <script src="{{url_for('static', path='js/demo/datatables-demo.js') }}"></script>
+
+  <!-- Select2 script  -->
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+  <script type="text/javascript">
+    $(document).ready(function() {
+        $('#jsposition').select2();
+    });
+  </script>
+  <script type="text/javascript">
+    $(document).ready(function() {
+        $('#jsgender').select2();
+    });
+  </script>
+  <script type="text/javascript">
+    $(document).ready(function() {
+        $('#jsdepartment').select2();
+    });
+  </script>
+
+<script type="text/javascript">
+	document.getElementById("file-upload").onchange = function() {
+		document.getElementById("uploadFile").value = this.files[0].name;
+	};
+</script>
+
+</body>
+
+</html>

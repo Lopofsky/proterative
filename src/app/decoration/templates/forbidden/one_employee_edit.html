@@ -1,0 +1,285 @@
+<div class="modal fade" id="one_employee_edit" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog" style="max-width: 80%;" role="document">
+    <div class="modal-content" >
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">Edit Employee</h5>
+        <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+        <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form action="/one_employee?employee_ID={{ payload['query_params']['employee_ID']}}" method="post" name="Database Query" enctype="multipart/form-data">
+          {% set Employee = payload["DB"]["Results"]["One Employee"][0] %}
+          {% set e_meta = Employee['metadata'] | to_json %}
+          {% set employment_data = Employee['Employment_Data'] | to_json %}
+          {% set _ = e_meta["Civil"].update({"First Name":Employee["First Name"], "Last Name":Employee["Last Name"]}) %}
+          <input type="hidden" name="query_names" value="Edit Employee">
+          <input type="hidden" name="ID" value="{{Employee['ID']}}">
+          <input type="hidden" name="unique_id" value="{{Employee['unique_id']}}">
+          <input type="hidden" name="Uploads" value="{{Employee['Uploads'] | to_json}}">
+          <!-- <input type="hidden" name="Employment_Data" value="{{Employee['Employment_Data'] | to_json}}"> -->
+          <input type="hidden" name="Notes" value="{{Employee['Notes'] | to_json}}">
+          <input type="hidden" name="*metadata.Request.Position" value="{{ Employee['position_ID'] }}">
+          <div class="col-md-12">
+            <div class="row gutters-sm">
+              <div class="col-sm-6 mb-3">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h4 class="d-flex align-items-center mb-3"><i class="material-icons text-info mr-2">Basic & Civil Data</i></h4>
+                    <div class="form-group col">
+                      <label for="RequestHotel">Position Requested</label>
+                      {% set m_key = "Title" %}
+                      {% set side_k = ["Hotel"] %}
+                      {% set extra = ["ID", "Department"] %}
+                      {% set Positions = payload['DB']['Results']["Get All Positions"] %}
+                      {% set Positions = Positions|group_dict(m_key, side_k, extra) %}
+                      <select id="jshotel" class="form-control" style="width: 100%;" name="*metadata.Request.Position">
+                        <!-- data-select2-id="select2-data-64-hggy" -->
+                        {% for k,v in Positions.items() %}
+                          <optgroup label="{{k}}"> 
+                            {% for rec in v[m_key] %}
+                                {% for data in rec %}
+                                  {# {% if e_meta['Legal']['Οικογενειακά'] == 'ΑΓΑΜΟΣ' %} selected {% endif %} #}
+                                  <option value="{{data[1]['ID']}}" {% if data[1]['ID'] == Employee['position_ID'] %} selected {% endif %} >&nbsp;&nbsp;&nbsp;&nbsp;{{data[0]}} - {{data[1]['Department']}} [{{k}}]</option>
+                                {% endfor %}
+                            {% endfor %}
+                          </optgroup>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">First Name:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="First Name" value="{{ e_meta['Civil']['First Name'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Last Name:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="Last Name" value="{{ e_meta['Civil']['Last Name'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Birthday:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="date" class="form-control" name="*metadata.Civil.Birthday" value="{{ e_meta['Civil']['Birthday'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Address:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Contact.Address" value="{{ e_meta['Contact']['Address'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Email:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Contact.Email" value="{{ e_meta['Contact']['Email'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Phone:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Contact.Land Line" value="{{ e_meta['Contact']['Land Line'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Mobile:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Contact.Mobile" value="{{ e_meta['Contact']['Mobile'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Father Name:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Civil.Father Name"  value="{{ e_meta['Civil']['Father Name'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Father SurName:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Civil.Father SurName"  value="{{ e_meta['Civil']['Father SurName'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Mother Name:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Civil.Mother Name"  value="{{ e_meta['Civil']['Mother Name'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Mother SurName:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Civil.Mother SurName" value="{{ e_meta['Civil']['Mother SurName'] }}">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-6 mb-3">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h4 class="d-flex align-items-center mb-3"><i class="material-icons text-info mr-2">Legal Data</i></h4>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Οικογενειακά:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <select class="form-control" name="*metadata.Legal.Οικογενειακά">
+		                    <option value="ΑΓΑΜΟΣ" {% if e_meta['Legal']['Οικογενειακά'] == 'ΑΓΑΜΟΣ' %} selected {% endif %}>Άγαμος</option>
+		                    <option value="ΕΓΓΑΜΟΣ" {% if e_meta['Legal']['Οικογενειακά'] == 'ΕΓΓΑΜΟΣ' %} selected{% endif %}>Έγγαμος</option>
+		                    <option value="ΔΙΑΖΕΥΓΜΕΝΟΣ" {% if e_meta['Legal']['Οικογενειακά'] == 'ΔΙΑΖΕΥΓΜΕΝΟΣ' %} selected{% endif %}>Διαζευγμένος</option>
+		                </select>
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Παιδιά:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="number" class="form-control" name="*metadata.Legal.Παιδιά"  value="{{ e_meta['Legal']['Παιδιά'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">ΑΦΜ:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Legal.ΑΦΜ" value="{{ e_meta['Legal']['ΑΦΜ'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">ΑΜΚΑ:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Legal.ΑΜΚΑ" value="{{ e_meta['Legal']['ΑΜΚΑ'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Κάρτα Ανεργίας:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Legal.Κάρτα Ανεργίας" value="{{ e_meta['Legal']['Κάρτα Ανεργίας'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Βιβλιάριο Υγείας:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Legal.Βιβλιάριο Υγείας" value="{{ e_meta['Legal']['Βιβλιάριο Υγείας'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Νέος Υπάλληλος:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+						<input type="radio" id="Ναι" name="*metadata.Legal.Νέος Υπάλληλος" {% if e_meta['Legal']['Νέος Υπάλληλος'] == 'Ναι' %} checked {% endif %} value="Ναι"><label for="Ναι">Ναι</label><br></input>
+						<input type="radio" id="Όχι" name="*metadata.Legal.Νέος Υπάλληλος" {% if e_meta['Legal']['Νέος Υπάλληλος'] == 'Όχι' %} checked {% endif %} value="Όχι"><label for="Όχι">Όχι</label><br></input>
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Bank:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Legal.Bank" value="{{ e_meta['Legal']['BANK'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">BIC/SWIFT:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Legal.BIC/SWIFT" value="{{ e_meta['Legal']['BIC/SWIFT'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Iban:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*metadata.Legal.IBAN" value="{{ e_meta['Legal']['IBAN'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Αριθμός πρωτοκόλλου@Εργάνη:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="text" class="form-control" name="*Employment_Data.Εργάνη" value="{{ employment_data['Εργάνη'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                      <div class="col-sm-3">
+                        <h6 class="mb-0">Ημερ. Πρόσληψης:</h6>
+                      </div>
+                      <div class="col-sm-9 text-secondary">
+                        <input type="date" class="form-control" name="*Employment_Data.Hired_date" value="{{ employment_data['Hired_date'] }}">
+                      </div>
+                    </div>
+                    <hr>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="{{ '' | now }}" type="submit"><i class="fas fa-check"></i> Save</button>
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
+</div>
