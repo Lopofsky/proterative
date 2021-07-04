@@ -1,5 +1,6 @@
 from starlette.datastructures import UploadFile
-import json, asyncio
+from json import loads
+from asyncio import sleep as asleep
 
 async def merge(a, b, path=None):
     #"merges b into a"
@@ -25,7 +26,7 @@ async def create_list_of_dicts_from_html_form(da_form, prefix, input_name_str_ex
             res = {}
             for dict_key in enumerate(reversed(t_res)):
                 key = dict_key[1]
-                try: value = json.loads(v.replace("'", '"'))
+                try: value = loads(v.replace("'", '"'))
                 except: value = v
                 res = {key:value} if dict_key[0] == 0 else {key:res}
             records.append({main_k:res})
@@ -45,10 +46,10 @@ async def get_single_value_from_dict(data):
             for k,v in data.items():
                 if type(v) != dict:
                     yield {k:v}
-                    await asyncio.sleep(1)
+                    await asleep(1)
                 else: 
                     yield await the_essence(v)
-                    await asyncio.sleep(1)
+                    await asleep(1)
             return 
         else: return 
     results = [k for k in await the_essence(data)]

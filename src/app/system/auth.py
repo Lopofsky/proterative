@@ -7,14 +7,16 @@ from starlette import status
 from starlette_session import SessionMiddleware
 from jose import jwt
 from datetime import datetime as dt
-import bcrypt, json, sys
+from bcrypt import hashpw, gensalt
+from json import loads
+from sys import path as sys_path
 
 if __package__ is None or __package__ == '':
     # uses current directory visibility
     from db import db_query
 else:
     # uses current package visibility
-    sys.path.append(".")
+    sys_path.append(".")
     from .db import db_query
 
 async def login(request: Request, payload, SESSION_SECRET, render_template, Server_Sessions=None, users=None):
@@ -30,10 +32,10 @@ async def login(request: Request, payload, SESSION_SECRET, render_template, Serv
         username, password = f["username"], f["password"]
         if username in users:
             db_password = users[username]["password"]
-            try: check_hash = bcrypt.hashpw(password, db_password)
+            try: check_hash = hashpw(password, db_password)
             except(TypeError, ValueError):
                 password, db_password = password.encode('utf-8'), db_password.encode('utf-8')
-                check_hash = bcrypt.hashpw(password, db_password)
+                check_hash = hashpw(password, db_password)
             valid_login = check_hash == db_password
         if not valid_login: raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user or password #0")
         token = jwt.encode({"username": username, "data": str(dt.now())}, SESSION_SECRET, algorithm="HS256")
@@ -55,12 +57,12 @@ async def register(request, payload, Session_Decoded, SESSION_SECRET, Server_Ses
         username, password, password2 = f["username"].replace("'", ""), f["password"].replace("'", ""), f["password2"].replace("'", "")
         if username in users.keys(): raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This username is already taken!")
         if not password == password2: raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user or password #2")
-        try: hashpass = bcrypt.hashpw(password, bcrypt.gensalt(13)).encode('utf-8')
-        except TypeError: hashpass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(13))
+        try: hashpass = hashpw(password, gensalt(13)).encode('utf-8')
+        except TypeError: hashpass = hashpw(password.encode("utf-8"), gensalt(13))
         faulty_forms = ""
-        try: roles = json.loads(f["roles"])
+        try: roles = loads(f["roles"])
         except: faulty_forms = "Roles"
-        try: metadata = json.loads(f["metadata"])
+        try: metadata = loads(f["metadata"])
         except: faulty_forms = "Metadata" if faulty_forms == "" else faulty_forms+" & Metadata"
         if faulty_forms != "": raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=faulty_forms+" Must be Valid JSON!")
         await db_query(r_obj=request.app.state.db, query_name="create_new_user", External=False, query_payload={"username":username, "hashpass":hashpass.decode("utf-8") , "roles":roles, "metadata":metadata})
