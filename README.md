@@ -4,8 +4,11 @@ This is a "quick_and_dirty" boilerplate to produce a webapp prototype, based on 
 
 The workflow is focused as much as possible at the template & SQL Queries. 
 ORM(s) were purposefully avoided - no disrespect, It's just a matter of taste, with a salt of objective arguments:
+
 **i)** Since it's a prototype, the final language/framework might differ, so it's better to have raw SQL's, which can be tested "live" until the final data load & transformation is correctly achieved.
+
 **ii)** Faster development: Since the queries themselves are accessible directly from the front-end, they can be edited on the fly, without commits & backend refactoring, via adminer or similar software.
+
 **iii)** Performance. Debatable argument, in the context of a prototype's value, but imho & humble experience, when you want to have an as completed as possible prototype for the client, it's best to squeeze performance for the favor of a smoother user experience, considering the above two reasons as well.
 
 By using internal API's, I try to leverage the capabilities of Jinja2 by providing Query, Forms & Path data, along with (front-end) requested (predefined) DB Queries & optionally data straight from python functions (like flask.Blueprint/starlette.Route do with jinja2 & locals) to the template's disposal. 
@@ -32,10 +35,15 @@ Finally the prototype can be part of the final contract, in order to have less m
 ## Is it fully functional? Can I use it?
 
 Not easily (yet):
+
 **i)** Testing (the most tricky part)
+
 **ii)** Documentation.
+
 **iii)** Dockerfile -> compose + some curating.
+
 **iv)** A postgres docker container with a shared volume with the host & the necessary examples.
+
 **v)** A "meta-admin" for the user to be able to handle the queries/endpoints/users/etc + some monitoring
 
 ## Final Notes - Todo's
