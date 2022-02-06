@@ -1,6 +1,6 @@
-# quick_and_dirty
+# Proterative (Prototype & Declerative)
 
-This is a "quick_and_dirty" boilerplate to produce a webapp prototype, based on python's Starlette toolkit.
+This is a quick and dirty boilerplate to produce a webapp prototype, based on python's Starlette toolkit.
 
 The workflow is focused as much as possible at the template & SQL Queries. 
 ORM(s) were purposefully avoided - no disrespect, It's just a matter of taste, with a salt of objective arguments:
