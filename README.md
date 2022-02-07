@@ -1,4 +1,4 @@
-# Proterative - (as much as possible) Declerative (webapps) Prototyping
+# Proterative : (as much as possible) Declerative Prototyping (for full stack web developers)
 
 This is a quick and dirty boilerplate to produce a webapp prototype, based on python's Starlette toolkit.
 
