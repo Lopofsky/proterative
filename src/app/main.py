@@ -70,7 +70,7 @@ async def root(request: Request):
         payload["form_data"], form = dd(list), await request.form()
         for x in form.multi_items():
             payload["form_data"][x[0]].append(x[1])
-        payload["form_data"] = {k:v[0] if len(v)==1 and k in reserved_keywords['form_data'] else v for k,v in payload["form_data"].items() }
+        payload["form_data"] = {k:v[0] if len(v)==1 and k not in reserved_keywords['form_data'] else v for k,v in payload["form_data"].items() }
         payload["path_params"] = [x for x in path_params["rest_of_path"].split('/') if x not in (None, '',)] if "rest_of_path" in path_params else None
         qp2d = str(request["query_string"].decode("utf-8")) # 'qp2d' aka "Query Parameters *to* Dict"
         if len(qp2d) >= 1 and qp2d[-1] == '&': qp2d = qp2d[:-1]
