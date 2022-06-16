@@ -9,8 +9,7 @@ try:
     from jinja2 import Markup
 except ImportError:
     from jinja2.utils import markupsafe
-
-Markup = markupsafe.Markup
+    Markup = markupsafe.Markup
 
 def merge_list(l1, l2): return l1+l2
 def pretty_json(dict_data): return Markup("<pre>"+dumps(dict_data, sort_keys=True, indent=4, separators=(', ', ': '))+"</pre>")
