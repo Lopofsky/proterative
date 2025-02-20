@@ -13,7 +13,7 @@
   <meta name="description" content="">
   <meta name="author" content="">
 
-  <title>Base Admin - Login</title>
+  <title>Nepheli™ HR |  Login</title>
 
   <!-- Custom fonts for this template-->
   <link href="{{ url_for('static', path='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
@@ -45,7 +45,7 @@
                   <div class="text-center">
                     <h1 class="h4 text-gray-900 mb-4">Please Login</h1>
                   </div>
-                  <form action="/login/{{payload['query_params'] | dict2q('query_params')}}" method="post" class="user">
+                  <form name="user_auth" action="/login/{{payload['query_params'] | dict2str('query_params')}}" method="post" class="user">
                     <div class="form-group">
                       <input type="text" name="username" class="form-control form-control-user" aria-describedby="usernameHelp" placeholder="Enter username..." required>
                     </div>

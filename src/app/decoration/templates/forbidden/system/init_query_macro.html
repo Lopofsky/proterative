@@ -5,7 +5,7 @@
         {% set all_queries = queries %}
     {% endif %}
     {% if 'query_params' in payload and payload['query_params'] is not none %}
-        {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + all_queries + "&" + payload['query_params']|dict2q('query_params')  %}
+        {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + all_queries + "&" + payload['query_params']|dict2str('query_params')  %}
     {% else %}
         {% set redirect_url = "/" + payload['page_requested'] + "?init_query=" + all_queries %}
     {% endif %}
