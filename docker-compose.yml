@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8512:8512"
+    volumes:
+      - ./src:/app:delegated
+      - ./src/requirements.txt:/tmp/requirements.txt:ro
+    environment:
+      - PYTHONPATH=/app
+      - PYTHON_ENV=development
+    # Health check to ensure service is running
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8512/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+    # Use development network
+    networks:
+      - dev-network
+
+networks:
+  dev-network:
+    driver: bridge

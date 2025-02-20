@@ -122,3 +122,13 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+src/app/decoration/.DS_Store
+src/app/decoration/static/.DS_Store
+src/app/decoration/static/css/.DS_Store
+src/app/decoration/static/img/.DS_Store
+src/app/decoration/static/js/.DS_Store
+src/app/decoration/static/scss/.DS_Store
+src/app/decoration/static/vendor/.DS_Store
+src/app/decoration/templates/.DS_Store
+src/app/.DS_Store
+.DS_Store

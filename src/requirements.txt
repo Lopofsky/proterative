@@ -1,20 +1,19 @@
-python_bcrypt
-Crypto
-#py-bcrypt
-#bcrypt
-starlette
-starlette-session
 requests
-httptools
-jinja2 
-asyncpg
-databases[postgresql]
+python-multipart
 uvloop
 uvicorn
-python-multipart
 aiofiles
 asyncinit
-python-jose[cryptography]
-
-#hypercorn
-#fastapi_login
+Jinja2
+asyncpg
+databases
+# python-bcrypt
+# crypto
+bcrypt
+pycryptodome
+python-jose
+starlette[full]
+starlette-csrf
+starlette-session
+# ray[default]
+python-dotenv
