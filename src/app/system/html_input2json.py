@@ -2,36 +2,54 @@ from starlette.datastructures import UploadFile
 from json import loads
 from asyncio import sleep as asleep
 
+
 async def merge(a, b, path=None):
     #"merges b into a"
-    if path is None: path = []
+    if path is None: 
+        path = []
+    
     for key in b:
         if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict): await merge(a[key], b[key], path + [str(key)])
+            if isinstance(a[key], dict) and isinstance(b[key], dict): 
+                await merge(a[key], b[key], path + [str(key)])
             else: 
-                if type(a[key]) == str: a[key] = [a[key], b[key]]
-                elif type(a[key]) == list: a[key].append(b[key])
-                else: raise Exception("key >"+key+"< with value >"+str(a[key])+"< is of type "+type(a[key])+" - Not Supported!")
-        else: a[key] = b[key]
+                if isinstance(a[key], str):
+                    a[key] = [a[key], b[key]]
+                elif isinstance(a[key], list): 
+                    a[key].append(b[key])
+                else: 
+                    raise Exception(f"{key=} with {str(a[key])=} & {type(a[key])=} is Not Supported!")
+        else: 
+            a[key] = b[key]
     return a
+
 
 async def create_list_of_dicts_from_html_form(da_form, prefix, input_name_str_exception):
     records = []
     for k, v in da_form.items():
-        v = {v.filename:{"filetype":v.content_type, "tempfile":v.file}} if type(v)==UploadFile else v
-        is_exception = False if input_name_str_exception is None else k.find(str(input_name_str_exception)) > -1
+        if isinstance(v, UploadFile):
+            v = {v.filename:{"filetype":v.content_type, "tempfile":v.file}}
+
+        if input_name_str_exception is None:
+            is_exception = False
+        else:
+            is_exception = k.find(str(input_name_str_exception)) > -1
         if k.startswith(prefix) and not is_exception:
             t_res = k.split('.')[1:]
             main_k = k[1:].split('.')[0]
             res = {}
             for dict_key in enumerate(reversed(t_res)):
                 key = dict_key[1]
-                try: value = loads(v.replace("'", '"'))
-                except: value = v
+                try: 
+                    value = loads(v.replace("'", '"'))
+                except: 
+                    value = v
                 res = {key:value} if dict_key[0] == 0 else {key:res}
             records.append({main_k:res})
-        else: records.append({k.replace(prefix, ""):v})
+        else: 
+            records.append({k.replace(prefix, ""):v})
     return records
+
 
 async def make_dict_from_dotted_string(da_form, prefix="*", input_name_str_exception=None):
     records = await create_list_of_dicts_from_html_form(da_form, prefix, input_name_str_exception)
@@ -40,20 +58,22 @@ async def make_dict_from_dotted_string(da_form, prefix="*", input_name_str_excep
         fin_dict = await merge(fin_dict, a)
     return fin_dict
 
+
 async def get_single_value_from_dict(data):
     async def the_essence(data):
         if data is not None:
             for k,v in data.items():
-                if type(v) != dict:
+                if not isinstance(v, dict):
                     yield {k:v}
                     await asleep(1)
                 else: 
                     yield await the_essence(v)
                     await asleep(1)
             return 
-        else: return 
+        return 
     results = [k for k in await the_essence(data)]
     return results
+
 
 async def float_any(s):
     s = str(s).strip()

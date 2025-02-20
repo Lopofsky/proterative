@@ -1,7 +1,10 @@
-from .helpers import do_some_stuff
+from app.routers.helpers import do_some_stuff
 
 async def main(b_args):
-    request, payload, render_template, Query_DB = b_args()
-    a_tag = "" if 'a_tag' not in payload['form_data'] else payload['form_data']['a_tag']
-    payload.update(await do_some_stuff.get_some_stuff(request, a_tag))
-    return render_template(payload['page_requested']+'.html', {"request": request, "payload": payload})
+    request, payload, render_template, Query_DB, Session = b_args()
+    a_tag = "" if "a_tag" not in payload["form_data"] else payload["form_data"]["a_tag"]
+    payload.update({"py": await do_some_stuff.get_some_stuff(request, a_tag)})
+    return render_template(
+        payload["page_requested"] + ".html", 
+        {"request": request, "payload": payload}
+    )
