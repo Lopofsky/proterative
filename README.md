@@ -1,5 +1,18 @@
 # Proterative : (as much as possible) Declerative Prototyping (for full stack web developers)
 
+proterative (adj.)
+/prəˈtɛr.ə.tɪv/
+Etymology: Greek "proteros" (former, prior, original) + Latin "-ativus" (tending toward, having the quality of)
+
+"Having the quality of returning things to their original, rightful place."
+
+A proterative system is one that fights the natural entropy of software complexity — not by adding smarter abstractions, but by trusting each layer to do what it was always meant to do.
+SQL was built to think in sets and relations. The browser was built to render structure and behaviour. The network layer was built to move data. When a system is proterative, none of these are asked to pretend to be something else. No layer colonizes another's responsibility. No developer has to hold a mental map of three abstraction levels just to understand a single user interaction.
+The cognitive relief is not accidental — it is the direct consequence of restoration. When SQL lives in SQL, and templates live in templates, the mind is free to focus on one thing at a time, because the architecture itself carries the rest.
+In this sense, proterative design is an act of respect — for the tools, for the layers, and ultimately for the developer who has to read the code at 11pm before a deadline.
+
+# About the current status of the project
+
 This is a quick and dirty boilerplate to produce a webapp prototype, based on python's Starlette toolkit.
 
 The workflow is focused as much as possible at the template & SQL Queries. 
